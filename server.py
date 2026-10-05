@@ -27,6 +27,7 @@ import select
 import shlex
 import shutil
 import signal
+import socketserver
 import subprocess
 import struct
 import sys
@@ -4010,7 +4011,8 @@ def kill_stale_server(port):
         if pid == os.getpid():
             continue
         try:
-            cmd = subprocess.run(["ps", "-p", str(pid), "-o", "command="],
+            # -ww: Linux ps cuts the command at 80 columns without a tty
+            cmd = subprocess.run(["ps", "-ww", "-p", str(pid), "-o", "command="],
                                  capture_output=True, text=True,
                                  timeout=5).stdout.strip()
         except subprocess.SubprocessError:
@@ -4025,6 +4027,14 @@ def kill_stale_server(port):
             os.kill(pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
+
+
+class Server(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer.server_bind does a reverse-DNS getfqdn() between bind and
+        # listen: seconds of refused connections where DNS is slow (CI Macs)
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 def main():
@@ -4060,13 +4070,13 @@ def main():
               f"their transcripts are saved", file=sys.stderr)
 
     try:
-        srv = ThreadingHTTPServer((args.host, args.port), Handler)
+        srv = Server((args.host, args.port), Handler)
     except OSError:
         kill_stale_server(args.port)
         srv = None
         for _ in range(20):                 # up to 10s for SIGTERM to land
             try:
-                srv = ThreadingHTTPServer((args.host, args.port), Handler)
+                srv = Server((args.host, args.port), Handler)
                 break
             except OSError:
                 time.sleep(0.5)

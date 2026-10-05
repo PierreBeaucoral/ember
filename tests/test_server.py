@@ -1567,12 +1567,14 @@ def test_terminal_slow_reader_gets_whole_paste():
     t.fd, t.alive, t._finished = master, True, False
     t.cond, t._write_lock = threading.Condition(), threading.Lock()
     t.WRITE_TIMEOUT = 0.3
-    paste, got = b"y" * 16_384, bytearray()
+    # bigger than any kernel pty buffer (Linux takes ~68 KB at once)
+    paste, got = b"y" * 262_144, bytearray()
 
-    def drain():                    # ~1 KB per 50 ms: ~0.8 s for the whole paste
+    def drain():                    # ~160 KB/s whatever the chunk size: ~1.6 s
         while len(got) < len(paste):
-            got.extend(os.read(slave, 1024))
-            time.sleep(0.05)
+            chunk = os.read(slave, 4096)
+            got.extend(chunk)
+            time.sleep(0.025 * len(chunk) / 4096)
 
     reader = threading.Thread(target=drain, daemon=True)
     reader.start()
@@ -1580,7 +1582,7 @@ def test_terminal_slow_reader_gets_whole_paste():
     try:
         t.write(paste)
         assert time.monotonic() - start > t.WRITE_TIMEOUT
-        reader.join(2)
+        reader.join(10)
         assert bytes(got) == paste
     finally:
         os.close(master)
@@ -2149,7 +2151,8 @@ def test_port_guard_kills_stale_server_and_refuses_foreign(tmp_path):
 
     # foreign holder: refused, never killed
     holder = subprocess.Popen(
-        [sys.executable, "-m", "http.server", "--bind", "127.0.0.1", str(port)],
+        [sys.executable, "-c", "import socket, time; s = socket.socket(); "
+         f"s.bind(('127.0.0.1', {port})); s.listen(); time.sleep(60)"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         _wait_listening(port, holder)
