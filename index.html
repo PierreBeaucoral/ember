@@ -19,20 +19,136 @@
     --border-strong: #777b82; --on-err: #20242b; --focus: var(--accent);
     /* derived colours a theme may override (see THEMES in the script) */
     --termbg: #15171b; --bar: #b36c57; --addfg: #a6ddb0; --delfg: #ffb2a6;
+    /* the page behind a previewed HTML file or figure: their own styles assume white */
+    --paper: #fff;
     /* Generated from packaging/macos/make_icon.py --sync. */
     --ember-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20128%20128%22%20width%3D%22128%22%20height%3D%22128%22%3E%0A%20%20%3Crect%20x%3D%226%22%20y%3D%226%22%20width%3D%22116%22%20height%3D%22116%22%20rx%3D%2228%22%20fill%3D%22%23dd876d%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M33%2043%20L54%2064%20L33%2085%20M68%2085%20L94%2085%22%20fill%3D%22none%22%20stroke%3D%22%2320242b%22%20stroke-width%3D%2210%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%3C%2Fsvg%3E");
     --stripe: rgba(255,255,255,.02); --shadow: rgba(0,0,0,.55);
     --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    /* text on an --accent fill (every theme's bg clears 4.5:1 on its accent;
+       tests/test_frontend.js checks), and the selected-row tint */
+    --on-accent: var(--bg);
+    --soft: color-mix(in srgb, var(--accent) 14%, transparent);
+    /* type scale: labels (uppercase), meta, body, titles, big numbers */
+    --fs-label: 11px; --fs-meta: 12.5px; --fs-body: 14px; --fs-title: 18px; --fs-big: 30px;
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  [hidden] { display:none !important; }   /* a class's display never un-hides it */
+  /* buttons: one primary per view (accent fill), outline, and text-only */
+  .btn, .btn-primary, .btn-quiet { font:500 var(--fs-meta)/1.3 inherit; border-radius:6px;
+        padding:5px 12px; cursor:pointer; white-space:nowrap; border:1px solid var(--border-strong);
+        background:none; color:var(--fg); display:inline-flex; align-items:center; gap:6px; }
+  .btn:hover { border-color:var(--dim); background:var(--panel2); }
+  .btn-primary { background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:600; }
+  .btn-primary:hover { background:color-mix(in srgb, var(--accent) 88%, var(--fg)); }
+  .btn-quiet { border-color:transparent; color:var(--dim); padding:5px 8px; }
+  .btn-quiet:hover, .btn-quiet[aria-pressed="true"] { color:var(--fg); background:var(--panel2); }
+  .btn:disabled, .btn-primary:disabled, .btn-quiet:disabled { opacity:.45; cursor:default; }
+  .label { font-size:var(--fs-label); font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--dim); }
+  .num { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .ico { width:16px; height:16px; flex:none; vertical-align:-3px; }
   html, body { height:100%; overflow:hidden; }
   body { margin:0; background:var(--bg); color:var(--fg);
          font:14px/1.55 -apple-system, "Segoe UI", sans-serif; }
   a { color: var(--accent); text-decoration: none; }
 
-  #app { display:flex; height:calc(100vh - 22px); }
-  #sidebar { width:300px; min-width:170px; border-right:1px solid var(--border);
+  #app { display:flex; height:calc(100vh - 22px - 48px); }
+  /* top bar: logo, breadcrumb, the palette as a search field (centred), 5-hour meter, Resume */
+  #topnav { height:48px; display:flex; align-items:center; gap:12px; padding:0 12px;
+            border-bottom:1px solid var(--border); background:var(--panel); }
+  .tnlogo { display:flex; align-items:center; gap:8px; flex:none; color:var(--fg); background:none; border:0;
+            font:600 15px/1 inherit; padding:4px 6px; border-radius:6px; cursor:pointer; }
+  .tnlogo:hover { background:var(--panel2); }
+  /* Home: a start page instead of the panes */
+  #home { display:none; height:calc(100vh - 22px - 48px); }
+  body.lay-home #app { display:none; }
+  body.lay-home #home { display:grid; grid-template-columns:200px minmax(0, 1fr) 320px; }
+  #homenav { display:flex; flex-direction:column; gap:2px; padding:12px 8px; background:var(--panel);
+             border-right:1px solid var(--border); overflow-y:auto; }
+  .hnav { display:flex; justify-content:space-between; align-items:center; text-align:left; background:none;
+          border:0; color:var(--dim); font:inherit; font-size:13.5px; padding:6px 10px; border-radius:6px; cursor:pointer; }
+  .hnav:hover { color:var(--fg); background:var(--panel2); }
+  .hnav[aria-current="page"] { color:var(--fg); background:var(--soft); box-shadow:inset 2px 0 0 var(--accent); }
+  .hnavgap { flex:1; }
+  #homemain { overflow-y:auto; padding:28px 32px 40px; }
+  #homemain > * { max-width:820px; }
+  #homeside { overflow-y:auto; padding:28px 20px 40px 0; display:flex; flex-direction:column; gap:16px; }
+  .hcard { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+  .hcard + .hcard, .hsection { margin-top:20px; }
+  #homeside .hcard { margin:0; }
+  .hcard h2 { margin:6px 0 4px; font-size:var(--fs-title); font-weight:600; line-height:1.3; }
+  .hcard p { margin:6px 0; }
+  .hmeta { color:var(--dim); font-size:12.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .hquote { color:var(--fg); border-left:2px solid var(--border-strong); padding:2px 0 2px 10px; margin:12px 0;
+            font-size:13px; line-height:1.5; }
+  .hprog { display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--dim); margin-top:8px; }
+  .hprog .planprog { max-width:200px; height:6px; }
+  .hact { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:14px; }
+  .hact select { background:var(--bg); color:var(--fg); border:1px solid var(--border-strong); border-radius:6px;
+                 font:inherit; font-size:13px; padding:5px 8px; max-width:100%; }
+  .htable { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+  .htable th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--border); }
+  .htable td { padding:8px; border-bottom:1px solid var(--border); white-space:nowrap; color:var(--dim); }
+  .htable td:first-child { color:var(--fg); white-space:normal; width:55%; }
+  .htable tr[data-id] { cursor:pointer; }
+  .htable tr[data-id]:hover td { background:var(--panel2); }
+  .htable tr[data-id]:focus-visible { outline:2px solid var(--focus); outline-offset:-2px; }
+  .hempty { color:var(--dim); font-size:13px; padding:10px 0 2px; line-height:1.6; }
+  .hthumbs { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .hthumb { display:flex; flex-direction:column; aspect-ratio:4/3; border:1px solid var(--border); border-radius:8px;
+            overflow:hidden; cursor:pointer; background:var(--paper); padding:0; font:inherit; }
+  .hthumb img { flex:1; min-height:0; width:100%; object-fit:contain; }
+  .hthumb b { flex:1; display:flex; align-items:center; justify-content:center; background:var(--panel2);
+              color:var(--dim); font:600 12px var(--mono); text-transform:uppercase; }
+  .hthumb span { font-size:11px; padding:4px 6px; background:var(--panel); color:var(--dim); text-align:left;
+                 overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #homeside .wstep { margin:6px 0 0; }
+  @media (max-width: 1100px){
+    body.lay-home #home { grid-template-columns:170px minmax(0, 1fr); overflow-y:auto; }
+    #homemain, #homeside { overflow:visible; }
+    #homeside { grid-column:2; padding:0 32px 40px; }
+  }
+  .tnlogo .ember-mark { width:24px; height:24px; }
+  #crumb, .tnright { flex:1 1 0; min-width:0; display:flex; align-items:center; gap:6px; }
+  #crumb { font-size:13px; color:var(--dim); white-space:nowrap; overflow:hidden; }
+  #crumb a { color:var(--dim); cursor:pointer; flex:none; max-width:40%; overflow:hidden; text-overflow:ellipsis; }
+  #crumb a:hover { color:var(--fg); }
+  #crumb b { color:var(--fg); font-weight:500; overflow:hidden; text-overflow:ellipsis; }
+  .tnsearch { flex:0 1 420px; min-width:150px; height:30px; display:flex; align-items:center; gap:8px;
+              justify-content:space-between; padding:0 7px 0 12px; border:1px solid var(--border-strong);
+              border-radius:7px; background:var(--bg); color:var(--dim); font:inherit; font-size:13px; cursor:pointer; }
+  .tnsearch > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tnsearch:hover { color:var(--fg); }
+  .tnright { justify-content:flex-end; }
+  .tnusage { font-family:var(--mono); font-size:11.5px; gap:7px; }
+  .tnbar { width:56px; height:5px; border-radius:3px; background:var(--panel2); overflow:hidden; display:inline-block; }
+  .tnbar i { display:block; height:100%; width:0; background:var(--ok); }
+  @media (max-width: 1100px){ .tnusage .tnbar { display:none; } .tnsearch > span { display:none; } .tnsearch { flex:none; min-width:0; } }
+  /* Workspace: the conversation in the centre (terminal docked below), and
+     one inspector whose tabs show the right-hand panes one at a time */
+  #insptabs { display:none; }
+  body.lay-workspace #insptabs { display:flex; flex:none; align-items:center; gap:2px; padding:6px 8px;
+                                 border-bottom:1px solid var(--border); background:var(--panel); }
+  .itab { padding:3px 9px; border-radius:6px; font-size:12.5px; color:var(--dim); cursor:pointer; white-space:nowrap; }
+  .itab:hover { color:var(--fg); }
+  .itab[aria-selected="true"] { background:var(--panel2); color:var(--fg); }
+  #inspHide { margin-left:auto; font-size:12px; padding:3px 7px; }
+  body.lay-workspace #colR { width:348px; }
+  body.lay-workspace #vsplit, body.lay-workspace #colR > .cell, body.lay-workspace #colR > .split,
+  body.lay-workspace #colR .qhead .tabs, body.lay-workspace #colR .qtitle,
+  body.lay-workspace #cell-main > .qhead { display:none; }
+  body.lay-workspace #colR > .cell.insp { display:flex; flex:1; height:auto; }
+  body.lay-workspace #colR .qhead { min-height:31px; }
+  body.lay-workspace #timeline { max-width:780px; margin:0 auto; }
+  body.lay-workspace #shead > *, body.lay-workspace #chart, body.lay-workspace .backlink {
+    max-width:740px; margin-left:auto; margin-right:auto; }
+  body.lay-workspace #chart { max-width:780px; }
+  body.lay-workspace .backlink { display:block; }
+  /* the terminal folds down to its bar */
+  #colL.termhidden #cell-term { height:auto; }
+  #colL.termhidden #termbody, #colL.termhidden #hsplitL { display:none; }
+  #sidebar { width:248px; min-width:170px;
              background:var(--panel); display:flex; flex-direction:column; }
 
   /* RStudio-style workspace: two independent columns, each with its own
@@ -46,13 +162,14 @@
   #cell-term { height: var(--rowL, 40%); flex:none; }
   #cell-plan { height: var(--rowP, 30%); flex:none; }
   #cell-viz  { height: var(--rowR, 45%); flex:none; }
-  .split { background: var(--border); z-index: 5; transition: background .12s;
-           touch-action: none; flex:none; }
+  /* separators read as 1px lines; the grip around them is 5px wide */
+  .split { background: linear-gradient(var(--border), var(--border)) center / 100% 1px no-repeat;
+           z-index: 5; transition: background .12s; touch-action: none; flex:none; }
+  #vsplit, #sideHandle { background: linear-gradient(var(--border), var(--border)) center / 1px 100% no-repeat; }
   .split:hover, .split.dragging, .split:focus-visible { background: var(--focus); outline:none; }
   .hsplit { height:5px; cursor: row-resize; }
   #vsplit { width:5px; cursor: col-resize; }
-  #sideHandle { width:5px; flex:none; background:var(--border); cursor:col-resize;
-                transition:background .12s; touch-action:none; }
+  #sideHandle { width:5px; flex:none; cursor:col-resize; transition:background .12s; touch-action:none; }
   #sideHandle:hover, #sideHandle.dragging, #sideHandle:focus-visible { background:var(--focus); outline:none; }
   #workspace.noright #colR, #workspace.noright #vsplit { display:none; }
   .cell { display:flex; flex-direction:column; min-width:0; min-height:0;
@@ -67,37 +184,46 @@
            color:var(--fg); border-bottom:1px solid var(--border); flex:none;
            display:flex; align-items:center; gap:8px; background:var(--panel); }
   .cell:focus-within > .qhead { box-shadow: inset 0 -2px 0 var(--focus); }
+  .qtitle, .ptab, .vtab { font-size:var(--fs-label); font-weight:600; letter-spacing:.6px;
+                          text-transform:uppercase; color:var(--dim); }
   .tabs { display:flex; gap:4px; align-items:center; flex:none; }
+  /* a narrow pane: header buttons shrink to an ellipsis instead of overlapping the tabs */
+  .qhead { overflow:hidden; }
+  .qhead .copy:not(.ibtn) { white-space:nowrap; flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .qbody { flex:1; overflow-y:auto; padding:10px 12px; font-size:12.5px; min-height:0; }
   .maxbtn { flex:none; }
   #main { flex:1; overflow-y:auto; min-height:0; padding:0 0 30px 0; container-type:inline-size; }
 
-  #topbar { padding:10px 12px; border-bottom:1px solid var(--border); }
+  #topbar { padding:12px 12px 0; display:flex; flex-direction:column; gap:10px; }
+  #btnNewChat { justify-content:center; padding:7px 12px; }
   .ember-mark { display:inline-block; width:34px; height:34px; flex:none;
                 background:var(--ember-icon) center / contain no-repeat; }
-  #topbar h1 { display:flex; align-items:center; gap:9px; font-size:23px;
-               margin:0; letter-spacing:-.7px; line-height:1.2; }
-  .brand-caption { margin:5px 0 12px; color:var(--dim); font-size:12px; }
-  .topbtns { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:10px; }
-  .topbtns .copy { margin-left:0; }
-  #search { width:100%; padding:6px 9px; background:var(--bg); color:var(--fg);
+  .searchwrap { position:relative; }
+  .searchwrap kbd { position:absolute; right:7px; top:50%; transform:translateY(-50%); cursor:pointer; }
+  .treelabel { padding:4px 0 2px; }
+  #search { width:100%; padding:6px 44px 6px 9px; background:var(--bg); color:var(--fg);
             border:1px solid var(--border-strong); border-radius:6px; font-size:13px; }
+  #sidefoot { flex:none; display:flex; flex-wrap:wrap; gap:2px; padding:6px 8px;
+              border-top:1px solid var(--border); }
+  #sidefoot .btn-quiet { font-size:12px; padding:4px 7px; }
+  #btnNotify.on { color:var(--accent); }
   #search:focus { outline:2px solid var(--focus); outline-offset:1px; border-color:var(--accent); }
 
   #tree { overflow-y:auto; flex:1; padding:6px 0; }
-  .proj { padding:7px 12px; cursor:pointer; border-left:3px solid transparent; }
+  .proj { padding:6px 12px; cursor:pointer; }
   .proj:hover { background:var(--panel2); }
-  .proj.open { border-left-color:var(--accent); background:var(--panel2); }
+  .proj.open .name { color:var(--fg); }
   .proj .name { font-weight:600; font-size:13px; overflow:hidden;
                 text-overflow:ellipsis; white-space:nowrap; }
-  .proj .sub { color:var(--dim); font-size:11.5px; }
-  .sess { padding:6px 12px 6px 24px; cursor:pointer; font-size:12.5px;
-          border-left:3px solid transparent; }
+  .proj .sub { color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .proj .livedot, .sess .livedot { margin-right:0; flex:none; }
+  .sess { padding:5px 12px 5px 22px; cursor:pointer; font-size:12.5px; }
   .sess:hover { background:var(--panel2); }
-  .sess.active { border-left-color:var(--tool); background:var(--panel2); }
+  .sess.active { background:var(--soft); box-shadow:inset 2px 0 0 var(--accent); }
   .sess .t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sess .m { color:var(--dim); font-size:11px; }
-  .memlink { padding:5px 12px 5px 24px; font-size:12px; color:var(--think); cursor:pointer; }
+  .sess .m .on { color:var(--ok); }
+  .memlink { padding:4px 12px 4px 22px; font-size:12px; color:var(--think); cursor:pointer; }
   .memlink:hover { background:var(--panel2); }
 
   /* session header: its own resizable strip above the scrolling timeline */
@@ -107,23 +233,42 @@
   #headgrip { flex:none; }
   #cell-main.headcollapsed #sheadbox { max-height:64px; }
   #shead { z-index:5; background:var(--bg);
-           border-bottom:1px solid var(--border); padding:12px 20px; }
+           border-bottom:1px solid var(--border); padding:12px 20px 10px; }
   #shead h2 { margin:0 0 4px; font-size:16px; }
   #shead .meta { color:var(--dim); font-size:12px; }
-  .stats { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; }
+  /* the quiet header: project over title, actions right, one line of plain meta */
+  .shtop { display:flex; align-items:flex-start; gap:12px; }
+  .shtitle { flex:1; min-width:0; }
+  .shproj { font-size:12px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #shead .shtitle h2 { margin:0; font-size:var(--fs-title); font-weight:600; line-height:1.3;
+                       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .shact { display:flex; gap:4px; align-items:center; flex:none; }
+  #shead .shmeta { margin-top:3px; display:flex; flex-wrap:wrap; align-items:center; }
+  .shmeta b { color:var(--fg); font-weight:500; }
+  .stats > span::before, .shmeta .cachet:not(:empty)::before { content:"·"; margin:0 7px; color:var(--dim); }
+  .livedot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--ok);
+             margin-right:5px; vertical-align:1px; }
+  .shbar { margin-top:8px; display:flex; align-items:center; gap:8px; font-size:12px; min-width:0; }
+  .shbar > * { flex:none; }
+  .shbar .chips { flex-wrap:nowrap; }
+  .shbar .keyhint { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .seg { display:inline-flex; gap:2px; padding:2px; border:1px solid var(--border-strong); border-radius:7px; }
+  .seg button { background:none; border:0; color:var(--dim); font:inherit; padding:2px 10px;
+                border-radius:5px; cursor:pointer; }
+  .seg button[aria-checked="true"] { background:var(--panel2); color:var(--fg); }
+  .shbar .btn-quiet { padding:3px 8px; font-size:12px; }
   .stat { background:var(--panel); border:1px solid var(--border); border-radius:6px;
           padding:4px 10px; font-size:12px; }
   .stat b { color:var(--accent); font-family:var(--mono); }
-  .chips { margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .chips .label { margin-right:2px; }
   .chip { font-size:11px; background:var(--panel); border:1px solid var(--border);
           border-radius:10px; padding:1px 8px; color:var(--dim); }
-  #shead .live { color:var(--ok); margin-left:6px; }
-  .toggles { margin-top:8px; font-size:12px; color:var(--dim); display:flex; gap:14px; }
-  .toggles label { cursor:pointer; user-select:none; }
+  #shead .live { color:var(--ok); margin-right:7px; }
 
   /* chart */
-  #chart { padding:10px 20px 0; }
-  #chart svg { width:100%; height:110px; display:block; }
+  #chart { padding:8px 20px 0; }
+  #chart svg { width:100%; height:36px; display:block; }
   .cbar { fill:var(--bar); cursor:pointer; outline:none; }
   .cbar .hit { fill:transparent; }
   .cbar .s-read { opacity:.45; } .cbar .s-in { fill:var(--think); }
@@ -132,7 +277,7 @@
   .chip[data-tool], .chip[data-nav] { cursor:pointer; font-family:inherit; }
   .chip[data-tool]:hover, .chip[data-nav]:hover { color:var(--fg); border-color:var(--accent); }
   .chip.nav { color:var(--fg); } .chip.nav.error { color:var(--err); border-color:color-mix(in srgb, var(--err) 50%, var(--border)); }
-  .cachet { margin-left:8px; font-family:var(--mono); }
+  .cachet { font-family:var(--mono); }
   .cachet.warm { color:var(--ok); } .cachet.soon { color:var(--tool); } .cachet.cold { color:var(--dim); }
   .keyhint { margin-left:auto; opacity:.85; }
   .apierr { color:var(--err); }
@@ -147,7 +292,6 @@
   .memlint.warn { border-left:3px solid var(--tool); }
   .memlint .mlhead { font-weight:600; color:var(--fg); }
   .memlint .dim { color:var(--dim); }
-  #chartlabel { color:var(--dim); font-size:11px; padding:2px 20px 0; }
 
   /* timeline */
   #timeline { padding:14px 20px; max-width:1050px; }
@@ -174,7 +318,8 @@
   /* timeline filters flip one class on #timeline (no per-entry loops) */
   #timeline.hideThink .entry.thinking, #timeline.hideTools .entry.tool,
   #timeline.hideSys .entry.command, #timeline.hideSys .entry.system,
-  #timeline.hideSys .entry.sysish, #timeline.hideAgents .agentcard { display:none; }
+  #timeline.hideSys .entry.sysish, #timeline.hideAgents .agentcard,
+  #timeline.hideSteps .tcard { display:none; }
   .collapsible > .body { display:none; }
   .collapsible.openx > .body { display:block; }
   .caret { transition:transform .12s; display:inline-block; }
@@ -203,15 +348,25 @@
   .hbar b { font-family:var(--mono); font-size:11.5px; color:var(--accent); }
   .hnote { color:var(--dim); font-size:11.5px; margin:12px 0 0; }
   /* turns: one card per prompt (header, one-line rows, final answer) */
-  .turn { margin:12px 0 20px; }
-  .tcard { margin:8px 0; border:1px solid var(--border); border-radius:8px; background:var(--panel); }
-  .thead { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 12px;
-           font-size:12px; color:var(--dim); cursor:pointer; border-radius:8px; }
+  /* a turn: the prompt and the answer as plain text under a coloured name,
+     the steps between them folded into one summary line over a thin rule */
+  .turn { margin:16px 0 22px; }
+  #timeline .turn > .entry { margin:6px 0; border:0; border-radius:0; background:transparent; overflow:visible; }
+  #timeline .turn > .entry > .head { padding:0 0 2px; }
+  #timeline .turn > .entry > .body { padding:0 0 2px; }
+  #timeline .turn > .entry .tag { font-size:12.5px; letter-spacing:0; }
+  #timeline .turn > .entry.assistant .tag { color:var(--accent); }
+  .tcard { margin:4px 0; }
+  .thead { display:flex; align-items:center; gap:8px; padding:3px 8px 3px 0;
+           font-size:12px; color:var(--dim); cursor:pointer; border-radius:6px; }
   .thead:hover { background:var(--panel2); }
-  .thead b { color:var(--ok); } .thead b.tstart { color:var(--dim); }
+  .thead .tsum { color:var(--fg); font-size:12.5px; min-width:0; overflow:hidden;
+                 text-overflow:ellipsis; white-space:nowrap; }
+  .thead .tcounts { flex:none; white-space:nowrap; }
+  .thead b.tstart { color:var(--dim); }
   .tmodel { font-family:var(--mono); font-size:11px; color:var(--fg); }
   .terr { color:var(--err); }
-  .tright { margin-left:auto; display:flex; gap:10px; align-items:center; font-family:var(--mono); font-size:11px; }
+  .tright { margin-left:auto; display:flex; gap:10px; align-items:center; font-family:var(--mono); font-size:11px; flex:none; }
   .tcard:not(.shut) > .thead .caret { transform:rotate(90deg); }
   .tcard.shut > .trows, .tcard.shut > .ctxpop { display:none; }
   .ctxbadge { background:color-mix(in srgb, var(--think) 16%, transparent); color:var(--think); cursor:pointer;
@@ -226,12 +381,14 @@
   .cptok { font-family:var(--mono); font-size:11px; color:var(--tool); flex:none; }
   .cptotal { border-top:1px solid var(--border); margin-top:4px; padding-top:4px; color:var(--fg); }
   .cpjump { cursor:pointer; font-size:11px; text-decoration:underline dotted; flex:none; }
-  .trows { border-top:1px solid var(--border); padding:3px 0; }
+  .trows { border-left:1px solid var(--border); margin:2px 0 6px 4px; padding:2px 0; }
   .tcard .entry.row { margin:0; border:0; border-radius:0; background:transparent; overflow:visible; }
-  .tcard .entry.row > .head { padding:2px 12px 2px 14px; cursor:pointer; }
+  .tcard .entry.row > .head { padding:2px 12px 2px 10px; cursor:pointer; }
   .tcard .entry.row > .head:hover { background:var(--panel2); }
   .tcard .entry.row > .body { padding:2px 14px 10px 34px; }
-  .entry.row .tag { flex:none; font-size:11.5px; letter-spacing:0; }
+  .entry.row .tag { flex:none; width:92px; font-size:11.5px; letter-spacing:0; overflow:hidden;
+                    text-overflow:ellipsis; white-space:nowrap; }
+  .rmeta .rtok { min-width:44px; text-align:right; } .rmeta .rdur { min-width:46px; text-align:right; }
   .entry.row.meta .tag { color:var(--accent); }
   .entry.row.user .tag { color:var(--user); }
   .entry.row.hook .tag, .entry.row.error > .head .tag { color:var(--err); }
@@ -243,6 +400,7 @@
            font-size:11px; color:var(--dim); }
   .rdot { width:6px; height:6px; border-radius:50%; background:var(--ok); display:inline-block; flex:none; }
   .rdot.err { background:var(--err); } .rdot.none { background:var(--border-strong); }
+  .rdot.blank { visibility:hidden; }
   .rdot.run { background:var(--tool); animation:rdotpulse 1.2s ease-in-out infinite; }
   @keyframes rdotpulse { 50% { opacity:.25; } }
   .rbar { display:flex; justify-content:flex-end; }
@@ -360,10 +518,15 @@
   .uhead { font-size:11px; font-weight:600; letter-spacing:.3px; color:var(--fg); margin:4px 0 2px; }
   .uhead:not(:first-child) { margin-top:12px; padding-top:8px; border-top:1px solid var(--border); }
   .ureset { color:var(--dim); font-size:11px; margin-top:-8px; }
+  .ulead { margin:2px 0 10px; }
+  .ubig { font-size:13px; color:var(--dim); }
+  .ubig b { font-size:var(--fs-big); line-height:1.1; color:var(--fg); font-weight:600; margin-right:4px; }
+  .ulead .ubar { height:8px; margin:8px 0 4px; }
+  .udetail { color:var(--dim); font-size:11.5px; margin:-4px 0 10px; }
   #uLive { cursor:pointer; }
   #sparkline { width:100%; height:44px; margin-top:4px; }
   .modelrow { font-size:11.5px; color:var(--dim); display:flex; justify-content:space-between; }
-  #vizframe { flex:1; min-height:0; border:none; width:100%; background:#fff; display:none; }
+  #vizframe { flex:1; min-height:0; border:none; width:100%; background:var(--paper); display:none; }
   /* an empty preview must never show a blank white frame in a dark theme */
   .previewwrap.empty iframe, .previewwrap.empty embed, .previewwrap.empty img { display:none !important; }
   #vizframe.darkbg { background:transparent; }
@@ -396,7 +559,7 @@
              align-items:center; justify-content:center; padding:8px;
              background:var(--panel); }
   #rvwrap { position:relative; line-height:0; }
-  #rvimg { display:block; max-width:100%; background:#fff; user-select:none; }
+  #rvimg { display:block; max-width:100%; background:var(--paper); user-select:none; }
   #rvlayer { position:absolute; inset:0; cursor:crosshair; touch-action:none; }
   .rvmark { position:absolute; pointer-events:auto; cursor:pointer; }
   .rvmark.region { border:2px solid var(--err); border-radius:3px;
@@ -461,8 +624,7 @@
   .planprog i { display:block; height:100%; background:var(--accent); }
 
   /* ---------- config inventory ---------- */
-  .ptab { padding:2px 7px; border-radius:6px; cursor:pointer; font-weight:600;
-          font-size:11.5px; color:var(--dim); white-space:nowrap; flex:none; }
+  .ptab { padding:2px 7px; border-radius:6px; cursor:pointer; white-space:nowrap; flex:none; }
   .ptab.active { background:var(--panel2); color:var(--fg); }
   .cfggroup { margin:8px 0 2px; display:flex; align-items:baseline; gap:6px;
               font-weight:700; font-size:11.5px; color:var(--fg); cursor:pointer;
@@ -510,9 +672,8 @@
             padding:2px 3px; margin-right:7px; border:1px solid; border-radius:4px; }
   .swatch i { width:7px; height:9px; border-radius:2px; display:block; }
   /* viz/files tabs + file explorer */
-  .vtab { padding:2px 9px; font-size:11.5px; font-weight:400; border:1px solid var(--border);
-          border-radius:6px; cursor:pointer; color:var(--dim); }
-  .vtab.active { color:var(--fg); border-color:var(--accent); }
+  .vtab { padding:2px 7px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+  .vtab.active { color:var(--fg); background:var(--panel2); }
   #fscrumb { padding:6px 10px; font-size:11px; color:var(--dim); flex:none;
              border-bottom:1px solid var(--border); display:flex; gap:6px;
              align-items:center; flex-wrap:wrap; }
@@ -520,6 +681,7 @@
   .fsrow { padding:3px 8px; font-size:12px; cursor:pointer; border-radius:5px;
            display:flex; align-items:center; gap:7px; color:var(--fg); }
   .fsrow:hover { background:var(--panel2); }
+  .fsrow .fico { display:inline-flex; color:var(--dim); }
   .fsrow .fname { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
                   white-space:nowrap; }
   .fsrow .fmeta { color:var(--dim); font-size:10.5px; flex:none; }
@@ -529,12 +691,12 @@
   .fsrow:hover .fact, .fsrow:focus-within .fact { visibility:visible; }
   .fsrow .fact:hover { color:var(--fg); border-color:var(--dim); }
   #fsframe { flex:1; min-height:0; border:none; width:100%;
-             border-top:1px solid var(--border); background:#fff; display:none; }
+             border-top:1px solid var(--border); background:var(--paper); display:none; }
   #fsframe.darkbg { background:transparent; }
   /* PDFs get their own <embed>: Chrome renders them with a plugin document,
      which a sandboxed iframe blocks (it just shows a blank page). */
   .pdfview { flex:1; min-height:0; width:100%; border:none; display:none;
-             background:#fff; }
+             background:var(--panel); }
   #fspdf { border-top:1px solid var(--border); }
   .dotnew { width:8px; height:8px; border-radius:50%; background:var(--ok); flex:none;
             box-shadow:0 0 6px var(--ok); }
@@ -564,19 +726,16 @@
   #endcard .ecs { display:flex; flex-wrap:wrap; gap:4px 14px; margin-bottom:6px; }
   #endcard .ecs b { font-variant-numeric:tabular-nums; }
   #endcard ul { margin:2px 0 6px 16px; padding:0; font-family:var(--mono); font-size:11px; }
-  #endcard .add { color:var(--ok, #3fb950); } #endcard .del { color:var(--err); }
-  #endcard .ecb { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  #btnNotify.on { color:var(--accent); border-color:var(--accent); }
+  #endcard .add { color:var(--ok); } #endcard .del { color:var(--err); }
+  #endcard .ecb { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:10px; }
+  #endcard .ecb .btn-primary { margin-right:4px; }
   #termbody > div:not(#endcard) { height:100%; width:100%; }
   .termbtn { cursor:pointer; }
   .projrow { display:flex; align-items:center; gap:6px; }
-  .projrow .cli { visibility:hidden; border:1px solid var(--border); border-radius:5px;
-                  font-size:11px; padding:0 6px; color:var(--tool); flex:none; }
+  .projrow .cli { visibility:hidden; border-radius:5px; font-size:11px; padding:0 6px;
+                  color:var(--accent); flex:none; }
   .proj:hover .cli, .proj:focus .cli { visibility:visible; }
   .proj .grow { flex:1; min-width:0; }
-  .nowchip { flex:none; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-             font:11px/1.5 var(--mono); color:var(--tool); border:1px solid var(--tool);
-             border-radius:9px; padding:0 6px; }
   /* ---------- add-ons pane (modal) ---------- */
   dialog.adbox { padding:0; color:var(--fg); }
   dialog.adbox[open] { display:flex; }
@@ -656,6 +815,7 @@
             text-overflow:ellipsis; white-space:nowrap; }
   .cpi mark { background:none; color:var(--accent); font-weight:700; padding:0; }
   .cpempty { padding:12px 14px; color:var(--dim); font-size:13.5px; }
+  .cpsec { padding:10px 12px 4px; list-style:none; }
   .cphint { flex:none; padding:8px 14px; border-top:1px solid var(--border); color:var(--dim); font-size:12.5px; }
   kbd { font:600 10.5px/1 var(--mono); padding:2px 5px; border-radius:4px; flex:none;
         border:1px solid var(--border-strong); color:var(--dim); background:var(--panel); }
@@ -717,12 +877,6 @@
   body.simple .xfull, body.simple .xadv, body.simple #btnAddons, body.simple #btnShell,
   body.simple #ptab-config, body.simple #planimprove, body.simple #btnCtx,
   body.simple .keyhint, body.simple #vizPath { display:none !important; }
-  body.simple .topbtns .ibtn { padding:0 8px; }
-  body.simple .topbtns .ibtn::after { margin-left:5px; }
-  body.simple #btnNotify::after { content:"Alerts"; }
-  body.simple #btnTheme::after { content:"Theme"; }
-  body.simple #btnRight::after { content:"Side panels"; }
-  body.simple #btnQuit::after { content:"Quit"; }
   .gl { display:none; }
   body.simple .gl { display:inline-flex; align-items:center; justify-content:center;
     width:18px; height:18px; padding:0; margin:0 4px; flex:none; vertical-align:middle;
@@ -760,29 +914,42 @@
 </style>
 </head>
 <body>
+<header id="topnav">
+  <button class="tnlogo" id="tnHome" title="Home"><span class="ember-mark" aria-hidden="true"></span><span>Ember</span></button>
+  <nav id="crumb" aria-label="Where you are"></nav>
+  <button id="tnSearch" class="tnsearch" title="command palette: chats, files, commands">
+    <span>Search chats, files and commands</span><kbd id="tnSearchK"></kbd></button>
+  <span class="tnright">
+    <button id="tnUsage" class="btn-quiet tnusage" title="5-hour usage · click for the Usage tab">
+      <span class="tnbar" aria-hidden="true"><i id="tnUsageBar"></i></span><span id="tnUsageT">usage</span></button>
+    <button id="btnLayout" class="btn-quiet" aria-haspopup="menu" title="Home, Workspace or All panes">Layout</button>
+    <button id="tnResume" class="btn-primary" hidden title="continue the open conversation in a terminal">Resume</button>
+  </span>
+</header>
 <div id="app">
   <div id="sidebar">
     <div id="topbar">
-      <h1><span class="ember-mark" aria-hidden="true"></span>Ember</h1>
-      <p class="brand-caption">A workspace for Claude Code</p>
-        <div class="topbtns" role="group" aria-label="Workspace controls">
-          <button class="copy termbtn ibtn" id="btnAddons" title="optional add-ons (graphify, /improve, …)" aria-label="Optional add-ons">🧩</button>
-          <button class="copy termbtn ibtn" id="btnNotify" aria-label="OS notifications" aria-pressed="false">🔔</button>
-          <button class="copy termbtn ibtn" id="btnTheme" title="change theme" aria-label="Change theme" aria-haspopup="menu">◐</button>
-          <button class="copy termbtn ibtn" id="btnRight" title="toggle usage/viz panels" aria-label="Toggle the right column" aria-pressed="true">◫</button>
-          <button class="copy termbtn" id="btnTerm" title="open a terminal (Ctrl+2 focuses it)"><span class="xfull">⌨ CLI</span><span class="xsimple">⌨ Chat</span></button>
-          <button class="copy termbtn ibtn" id="btnQuit" title="Quit Ember" aria-label="Quit Ember: stop the server">⏻</button>
-        </div>
-      <input id="search" placeholder="Filter projects · Enter searches transcripts" autocomplete="off"
-             aria-label="Filter projects; Enter searches every transcript">
+      <button class="btn-primary" id="btnNewChat" aria-haspopup="menu" title="start Claude in a folder">＋ New chat</button>
+      <div class="searchwrap">
+        <input id="search" placeholder="Filter projects" autocomplete="off"
+               aria-label="Filter projects; Enter searches every transcript">
+        <kbd id="searchK" title="command palette"></kbd>
+      </div>
+      <div class="label treelabel">Projects</div>
     </div>
     <div id="tree" role="tree" aria-label="Projects and sessions"><div class="placeholder">loading projects…</div></div>
+    <div id="sidefoot" role="group" aria-label="Ember controls">
+      <button class="btn-quiet" id="btnAddons" title="optional add-ons (graphify, /improve, …)">Add-ons</button>
+      <button class="btn-quiet" id="btnTheme" title="change theme" aria-haspopup="menu">Theme</button>
+      <button class="btn-quiet" id="btnNotify" aria-pressed="false">Alerts</button>
+      <button class="btn-quiet" id="btnQuit" title="Quit Ember: stop the server">Quit</button>
+    </div>
   </div>
   <div id="sideHandle" title="drag to resize the sidebar" aria-label="Resize sidebar" aria-controls="sidebar"></div>
   <div id="workspace">
    <div class="col" id="colL">
     <div class="cell" id="cell-main">
-      <div class="qhead">📄 Session
+      <div class="qhead"><span class="qtitle">Session</span>
         <span style="margin-left:auto"></span>
         <button class="copy ibtn" id="headToggle" title="collapse / expand the header" aria-label="Collapse the session header" aria-expanded="true">▲</button>
         <button class="copy maxbtn ibtn" data-cell="cell-main" title="maximize / restore (Ctrl+Shift+M)" aria-label="Maximize the session pane" aria-pressed="false">⛶</button>
@@ -801,17 +968,18 @@
 
     <div id="hsplitL" class="split hsplit" title="drag to resize rows" aria-label="Resize terminal pane" aria-controls="cell-term"></div>
     <div class="cell" id="cell-term">
-      <div class="qhead">⌨ Terminal<button class="gl" data-gl="terminal" aria-label="What is the terminal?">?</button>
+      <div class="qhead"><span class="qtitle">Terminal</span><button class="gl" data-gl="terminal" aria-label="What is the terminal?">?</button>
         <span id="ttablist" role="tablist" aria-label="Terminals"></span>
         <span style="margin-left:auto;display:flex;gap:6px">
           <button class="copy termbtn" id="btnShell" title="plain shell in $HOME">+ shell</button>
           <button class="copy termbtn" id="btnClaudeHome" title="start claude in a folder…" aria-haspopup="menu"><span class="xfull">+ claude</span><span class="xsimple">＋ New chat with Claude</span></button>
+          <button class="copy" id="termHide" aria-expanded="true" aria-controls="termbody" title="fold the terminal down to this bar">Hide</button>
           <button class="copy maxbtn ibtn" data-cell="cell-term" title="maximize / restore (Ctrl+Shift+M)" aria-label="Maximize the terminal pane" aria-pressed="false">⛶</button>
         </span>
       </div>
       <div id="termbody">
         <div id="termempty" class="vizempty" style="padding:20px">
-          <span class="xfull">No terminal yet — <b>+ claude</b> or <b>+ shell</b> above, ⌨ on a project,
+          <span class="xfull">No terminal yet — <b>+ claude</b> or <b>+ shell</b> above, <b>+ chat</b> on a project,
           or “resume in CLI” on a session.</span>
           <span class="xsimple">This is where you talk to Claude. Click <b>＋ New chat with Claude</b>
           above and pick the folder it should work in, then type your message and press Enter.
@@ -823,8 +991,16 @@
    </div>
    <div id="vsplit" class="split" title="drag to resize columns" aria-label="Resize right column" aria-controls="colR"></div>
    <div class="col" id="colR">
+    <div id="insptabs" role="tablist" aria-label="Inspector" data-auto="1">
+      <span class="itab" role="tab" data-insp="plan">Plan</span>
+      <span class="itab" role="tab" data-insp="usage">Usage</span>
+      <span class="itab" role="tab" data-insp="output">Output</span>
+      <span class="itab" role="tab" data-insp="files">Files</span>
+      <span class="itab xadv" role="tab" data-insp="config">Config</span>
+      <button class="btn-quiet" id="inspHide" title="hide the inspector">Hide</button>
+    </div>
     <div class="cell" id="cell-usage">
-      <div class="qhead">⚡ Token use<button class="gl" data-gl="tokens" aria-label="What are tokens?">?</button>
+      <div class="qhead"><span class="qtitle">Usage</span><button class="gl" data-gl="tokens" aria-label="What are tokens?">?</button>
         <span id="blockreset" style="margin-left:auto;font-weight:400"></span>
         <button class="copy maxbtn ibtn" data-cell="cell-usage" title="maximize / restore (Ctrl+Shift+M)" aria-label="Maximize the token-use pane" aria-pressed="false">⛶</button>
       </div>
@@ -834,12 +1010,12 @@
     <div class="cell" id="cell-plan">
       <div class="qhead" style="gap:4px">
         <span class="tabs" role="tablist" aria-label="Plan and config" data-auto="1">
-          <span class="ptab active" id="ptab-plan" data-view="plan" role="tab" tabindex="0" aria-selected="true" aria-controls="planbody">✅ Plan</span>
-          <span class="ptab" id="ptab-config" data-view="config" role="tab" tabindex="-1" aria-selected="false" aria-controls="configbody">⚙ Config</span>
+          <span class="ptab active" id="ptab-plan" data-view="plan" role="tab" tabindex="0" aria-selected="true" aria-controls="planbody">Plan</span>
+          <span class="ptab" id="ptab-config" data-view="config" role="tab" tabindex="-1" aria-selected="false" aria-controls="configbody">Config</span>
         </span><button class="gl" data-gl="plan" aria-label="What is the plan?">?</button>
         <span id="plancount" style="margin-left:auto;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
         <button class="copy ibtn" id="planimprove" style="display:none"
-                title="open the latest end-of-session retrospective" aria-label="Open the latest retrospective">🔎</button>
+                title="open the latest end-of-session retrospective" aria-label="Open the latest retrospective">Retrospective</button>
         <button class="copy ibtn" id="planrefresh" title="re-read the plan file" aria-label="Refresh">⟳</button>
         <button class="copy maxbtn ibtn" data-cell="cell-plan" title="maximize / restore (Ctrl+Shift+M)" aria-label="Maximize the plan pane" aria-pressed="false">⛶</button>
       </div>
@@ -854,12 +1030,12 @@
     <div id="hsplitR2" class="split hsplit" title="drag to resize rows" aria-label="Resize viz pane" aria-controls="cell-viz"></div>
     <div class="cell" id="cell-viz">
       <div class="qhead" style="gap:4px">
-        <span class="tabs" role="tablist" aria-label="Viz and files" data-auto="1">
-          <span class="vtab active" id="vtab-viz" data-view="viz" role="tab" tabindex="0" aria-selected="true" aria-controls="vizview">📊 Viz</span>
-          <span class="vtab" id="vtab-files" data-view="files" role="tab" tabindex="-1" aria-selected="false" aria-controls="filesview">🗂 Files</span>
-        </span><button class="gl" data-gl="viz" aria-label="What is the Viz pane?">?</button>
+        <span class="tabs" role="tablist" aria-label="Output and files" data-auto="1">
+          <span class="vtab active" id="vtab-viz" data-view="viz" role="tab" tabindex="0" aria-selected="true" aria-controls="vizview">Output</span>
+          <span class="vtab" id="vtab-files" data-view="files" role="tab" tabindex="-1" aria-selected="false" aria-controls="filesview">Files</span>
+        </span><button class="gl" data-gl="viz" aria-label="What is the Output pane?">?</button>
         <button class="copy" id="vizReview" style="margin-left:auto;display:none"
-                title="point at parts of this figure or PDF and write what should change">💬 Comment</button>
+                title="point at parts of this figure or PDF and write what should change">Comment</button>
         <button class="copy" id="vizPath" style="margin-left:0" title="copy watched folder path">copy path</button>
         <button class="copy maxbtn ibtn" data-cell="cell-viz" title="maximize / restore (Ctrl+Shift+M)" aria-label="Maximize the viz pane" aria-pressed="false">⛶</button>
       </div>
@@ -903,13 +1079,25 @@
   </div>
 </div>
 
+<div id="home" aria-label="Home">
+  <nav id="homenav" aria-label="Home">
+    <button class="hnav" data-h="home" aria-current="page">Home</button>
+    <button class="hnav" data-h="chats">Chats</button>
+    <button class="hnav" data-h="plans">Plans</button>
+    <button class="hnav" data-h="outputs">Outputs</button>
+    <button class="hnav" data-h="usage">Usage</button>
+    <span class="hnavgap"></span>
+    <button class="hnav" data-h="setup">Setup <span id="hsetupN" class="num"></span></button>
+    <button class="hnav" data-h="settings" aria-haspopup="menu">Settings</button>
+  </nav>
+  <div id="homemain" tabindex="-1"></div>
+  <aside id="homeside" aria-label="Setup, usage and outputs"></aside>
+</div>
+
 <footer id="statusbar" role="status" aria-live="off" aria-label="Status bar">
   <button class="sbseg" id="sbConn" title="server connection · click for diagnostics"><span class="sbdot" aria-hidden="true">●</span> <span id="sbConnT">connecting</span></button>
   <button class="sbseg sbshrink" id="sbProj" title="active project · click to go to the sidebar"></button>
   <button class="sbseg sbshrink" id="sbTerm" title="active terminal · click to focus it"></button>
-  <button class="sbseg" id="sbPlan" title="plan progress · click for the Plan pane"></button>
-  <button class="sbseg" id="sbUsage" title="5-hour usage · click for the Token use pane"></button>
-  <button class="sbseg sbshrink" id="sbViz" title="folder the Viz pane watches · click to browse it"></button>
   <button class="sbseg r" id="sbKeys" title="command palette"></button>
   <button class="sbseg" id="sbHelp" title="guided tour, practice project, simple mode, glossary" aria-haspopup="menu">? Help</button>
 </footer>
@@ -919,7 +1107,7 @@
          autocomplete="off" spellcheck="false"
          aria-label="Command palette. Type to filter; start with &gt; for actions, @ for sessions, # to search transcripts, / for files">
   <ul id="cplist" role="listbox" aria-label="Results"></ul>
-  <div class="cphint" aria-hidden="true"><b>&gt;</b> actions · <b>@</b> sessions · <b>#</b> search transcripts · <b>/</b> files · ↑↓ ↵ · Esc</div>
+  <div class="cphint" aria-hidden="true"><b>@</b> sessions · <b>#</b> search transcripts · <b>/</b> files · <b>&gt;</b> actions · ↑↓ ↵ · Esc</div>
 </dialog>
 
 <dialog id="keys" class="adbox" aria-labelledby="keystitle">
@@ -970,7 +1158,21 @@
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
-const state = { projects: [], openProject: null, sessions: {}, active: null };
+/* layout: "home" (start page), "workspace" (conversation + one inspector) or
+   "panes" (the quadrant grid). The work layout is remembered like the theme. */
+const LAYOUTS = ["home", "workspace", "panes"];
+const savedLayout = () => { try{ const l = localStorage.getItem("ember-layout");
+  return l === "panes" ? "panes" : "workspace"; }catch(e){ return "workspace"; } };
+const state = { projects: [], openProject: null, sessions: {}, active: null, layout: savedLayout() };
+// the Workspace inspector: which tab, and the pane cell each tab shows
+const INSP_CELL = {plan: "cell-plan", usage: "cell-usage", output: "cell-viz", files: "cell-viz", config: "cell-plan"};
+let INSP = (() => { try{ const t = localStorage.getItem("ember-insp"); return t in INSP_CELL ? t : "plan"; }catch(e){ return "plan"; } })();
+/* the one icon set: 16px inline SVG strokes in currentColor */
+const svgIcon = d => `<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  folder: svgIcon('<path d="M1.5 4.5v8h13v-6.5H8L6.5 4.5z"/>'),
+  file: svgIcon('<path d="M3.5 1.5h6l3 3v10h-9z M9.5 1.5v3h3"/>'),
+};
 
 /* ---------- auth token (from launcher URL fragment, then localStorage) ---------- */
 function initToken(){
@@ -1004,6 +1206,7 @@ function ensureCookie(){
 }
 ensureCookie();
 
+const LIVE_WINDOW = 600;      // a session written to in the last 10 min counts as live (server.py agrees)
 const fmtBytes = n => n > 1e6 ? (n/1e6).toFixed(1)+" MB" : n > 1e3 ? (n/1e3).toFixed(0)+" kB" : n+" B";
 const fmtTok = n => n >= 1e6 ? (n/1e6).toFixed(2)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"k" : String(n||0);
 const fmtDate = ts => { if(!ts) return ""; const d = new Date(typeof ts==="number"? ts*1000 : ts);
@@ -1033,8 +1236,8 @@ function cleanTitle(t){
   const name = (tag("command-name") || "").trim(), msg = (tag("command-message") || "").trim();
   const cmd = name || (/^[\w:.-]+$/.test(msg) ? msg : "");
   if(cmd) t = (cmd.startsWith("/") ? cmd : "/" + cmd) + " " + (tag("command-args") || "");
-  // any other hyphenated XML-ish tag (<system-reminder>, <local-command-stdout>…)
-  return t.replace(/<\/?[a-z]+(?:-[a-z]+)+>/gi, " ").replace(/\s+/g, " ").trim();
+  // any other XML-ish wrapper tag (<system-reminder>, <local-command-stdout>, <pasted_content id=…>)
+  return t.replace(/<\/?[a-z]+(?:[-_][a-z]+)+(?:\s[^>]*)?>/gi, " ").replace(/\s+/g, " ").trim();
 }
 
 /* A 401 means this tab never got the token: how to open one that has it. */
@@ -1057,7 +1260,7 @@ async function api(path, body){
   setConn(true);
   const j = await r.json();
   if(r.status === 401){
-    $("#main").innerHTML = `<div class="placeholder">🔒 ${esc(j.error)}<br><br>
+    $("#main").innerHTML = `<div class="placeholder">${esc(j.error)}<br><br>
       ${reloginHint()}</div>`;
     throw new Error(j.error);
   }
@@ -1096,7 +1299,7 @@ function mathify(src, hole){
     try {
       return hole(katex.renderToString(tex.trim(), {
         displayMode: display, throwOnError: false, trust: false, strict: false,
-        errorColor: "#f85149", maxSize: 24, maxExpand: 500 }));
+        errorColor: "var(--err)", maxSize: 24, maxExpand: 500 }));
     } catch(e){ return m; }   // unparseable — leave the source text alone
   });
 }
@@ -1441,6 +1644,12 @@ function nowMap(projects, now){
   return out;
 }
 
+// "live" or the date, and "14 turns" (a lower bound when only the ends of a big file were read)
+const sessWhen = s => s.mtime > Date.now() / 1000 - LIVE_WINDOW ? '<span class="on">live</span>'
+  : new Date(s.mtime * 1000).toLocaleDateString(undefined, {month: "short", day: "numeric"});
+const turnsLabel = s => s.prompts == null ? fmtBytes(s.size)
+  : `${s.prompts}${s.counts_partial ? "+" : ""} turn${s.prompts === 1 && !s.counts_partial ? "" : "s"}`;
+
 /* The tree is one tab stop (roving tabindex): ↑/↓ move, → expands or steps
    in, ← collapses or steps out, Enter/Space opens, c starts claude there. */
 function renderTree(){
@@ -1461,14 +1670,14 @@ function renderTree(){
     div.setAttribute("aria-level", "1");
     div.setAttribute("aria-expanded", expanded);
     div.setAttribute("aria-keyshortcuts", "c");
-    const shortPath = pathParts(p.path).slice(-2).join("/") || p.path;
-    div.innerHTML = `<div class="projrow"><div class="grow">
+    const shortPath = baseName(p.path) || p.path, live = p.mtime > Date.now() / 1000 - LIVE_WINDOW;
+    div.innerHTML = `<div class="projrow">${live ? '<i class="livedot" title="a conversation here was active in the last 10 minutes"></i>' : ""}<div class="grow">
         <div class="name" title="${esc(p.path)}">${esc(shortPath)}</div>
-        <div class="sub">${p.sessions} session${p.sessions===1?"":"s"} · ${fmtDate(p.mtime)}</div>
-      </div>${nowBy[p.slug] ? `<span class="nowchip" title="running now">${esc(nowBy[p.slug])}</span>` : ""}${isNew(p) ? '<span class="dotnew" title="new activity since you last opened this project"></span>' : ''}<span class="cli" title="open claude CLI in ${esc(p.path)}">⌨</span></div>`;
+        <div class="sub">${p.sessions} chat${p.sessions===1?"":"s"}${nowBy[p.slug] ? ` · running ${esc(nowBy[p.slug])}` : ` · ${fmtDate(p.mtime)}`}</div>
+      </div>${isNew(p) ? '<span class="dotnew" title="new activity since you last opened this project"></span>' : ''}<span class="cli" title="new chat with Claude in ${esc(p.path)}">+ chat</span></div>`;
     div.onclick = () => toggleProject(p.slug);
     div.querySelector(".cli").onclick = e => { e.stopPropagation();
-      openTerm("claude", {project: p.slug, label: "claude · " + baseName(shortPath)}); };
+      openTerm("claude", {project: p.slug, label: "claude · " + shortPath}); };
     tree.appendChild(div);
     if(expanded){
       const child = (el, key) => {
@@ -1479,7 +1688,7 @@ function renderTree(){
       };
       if(p.has_memory && state.openProject===p.slug){
         const m = document.createElement("div");
-        m.className = "memlink"; m.textContent = "🧠 project memory";
+        m.className = "memlink"; m.textContent = "Project memory";
         m.onclick = e => { e.stopPropagation(); showMemory(p.slug); };
         child(m, "m:" + p.slug);
       }
@@ -1490,7 +1699,7 @@ function renderTree(){
         el.setAttribute("aria-selected", on);
         const title = cleanTitle(s.title) || "(untitled session)";
         el.innerHTML = `<div class="t" title="${esc(title)}">${esc(title)}</div>
-          <div class="m">${fmtDate(s.mtime)} · ${fmtBytes(s.size)}${s.has_subagents?" · 🤖":""}${s.api_error ? ` · <span class="apierr" title="the session ended on an API error: ${esc(s.api_error)}">● ${esc(s.api_error.replace(/_/g, " "))}</span>` : ""}</div>`;
+          <div class="m" title="${fmtBytes(s.size)}">${sessWhen(s)} · ${turnsLabel(s)}${s.api_error ? ` · <span class="apierr" title="the session ended on an API error: ${esc(s.api_error)}">${esc(s.api_error.replace(/_/g, " "))}</span>` : ""}</div>`;
         el.onclick = e => { e.stopPropagation(); openSession(p.slug, s.id); };
         child(el, "s:" + p.slug + "/" + s.id);
       }
@@ -1554,9 +1763,9 @@ async function toggleProject(slug){
   // default; those without get a button to build one
   if(p && p.graph){
     vizPinned = {path: p.graph,
-                 label: "🕸 " + (baseName(p.path) || "project") + " · knowledge graph"};
+                 label: (baseName(p.path) || "project") + " · knowledge graph"};
     vizGraphOffer = null;
-    vizTab("viz");
+    vizTab("viz", true);
     showPinned();
     refreshViz();
   } else {
@@ -1600,6 +1809,7 @@ async function restoreFromHash(){
 // sequence number and drops replies that are no longer the latest
 let openSeq = 0, fsSeq = 0;
 async function openSession(slug, id, findText, jump){
+  leaveHome();
   const my = ++openSeq;
   state.active = slug+"/"+id; renderTree(); updateHash();
   showState($("#main"), "loading", "Parsing session…");
@@ -1613,6 +1823,7 @@ async function openSession(slug, id, findText, jump){
   }
 }
 async function openSubagent(slug, session, agent, findText){
+  leaveHome();
   const my = ++openSeq;
   showState($("#main"), "loading", "Parsing subagent…");
   try{
@@ -1634,17 +1845,42 @@ function mountHeader(el){
   return box;
 }
 
-const statsHtml = t => `
-      <div class="stat">requests <b>${t.requests||0}</b></div>
-      <div class="stat">output <b>${fmtTok(t.output_tokens)}</b></div>
-      <div class="stat">cache read <b>${fmtTok(t.cache_read)}</b></div>
-      <div class="stat">cache write <b>${fmtTok(t.cache_creation)}</b></div>
-      <div class="stat">peak context <b>${fmtTok(t.peak_context)}</b></div>`;
-// errors / agents / skills first (jump chips), then the tool histogram
-const chipsHtml = s => Object.keys(NAVLAB).map(k => [k, s.entries.filter(NAV[k]).length]).filter(([, n]) => n)
-  .map(([k, n]) => `<button class="chip nav ${k}" data-nav="${k}" title="jump to the next one (key ${k[0]})">${NAVLAB[k]} ×${n}</button>`).join("")
-  + Object.entries(s.tool_counts||{}).sort((a,b)=>b[1]-a[1])
-  .map(([k,v])=>`<button class="chip" data-tool="${esc(k)}" title="jump to the next ${esc(k)} call">${esc(k)} ×${v}</button>`).join("");
+// the header's one line of numbers; requests and cache writes on hover
+const statsHtml = t => `<span title="${t.requests || 0} requests">Output <b class="num">${fmtTok(t.output_tokens)}</b></span>`
+  + `<span>Peak context <b class="num">${fmtTok(t.peak_context)}</b></span>`
+  + `<span title="cache write ${fmtTok(t.cache_creation)}">Cache read <b class="num">${fmtTok(t.cache_read)}</b></span>`;
+// errors / agents / skills: the kinds worth jumping to (tool counts live in the Context panel)
+const chipsHtml = s => {
+  const chips = Object.keys(NAVLAB).map(k => [k, s.entries.filter(NAV[k]).length]).filter(([, n]) => n)
+    .map(([k, n]) => `<button class="chip nav ${k}" data-nav="${k}" title="jump to the next one (key ${k[0]})">${NAVLAB[k]} ×${n}</button>`).join("");
+  return chips ? `<span class="label">Jump to</span>${chips}` : "";
+};
+const toolChipsHtml = s => Object.entries(s.tool_counts || {}).sort((a, b) => b[1] - a[1])
+  .map(([k, v]) => `<button class="chip" data-tool="${esc(k)}" title="jump to the next ${esc(k)} call">${esc(k)} ×${v}</button>`).join("");
+
+/* Timeline filters, kept across sessions: "Everything" or "Prompts and
+   answers" (steps hidden), plus the per-kind toggles of the View menu. */
+const TLF = Object.assign({steps: true, think: true, tools: true, sys: false, agents: true},
+  (() => { try{ return JSON.parse(localStorage.getItem("ember-tlf") || "{}"); }catch(e){ return {}; } })());
+const TLF_KINDS = [["think", "Thinking"], ["tools", "Tool calls"], ["sys", "System and commands"], ["agents", "Agents"]];
+function applyFilters(){
+  try{ localStorage.setItem("ember-tlf", JSON.stringify(TLF)); }catch(e){}
+  const tl = VIEW && VIEW.tl, head = VIEW && VIEW.head;
+  if(tl) for(const [k, cls] of [["steps", "hideSteps"], ["think", "hideThink"], ["tools", "hideTools"],
+                                ["sys", "hideSys"], ["agents", "hideAgents"]]) tl.classList.toggle(cls, !TLF[k]);
+  if(head) head.querySelectorAll(".seg [data-mode]").forEach(b =>
+    b.setAttribute("aria-checked", (b.dataset.mode === "all") === TLF.steps));
+}
+function viewMenu(anchor){
+  openMenu(anchor, m => {
+    for(const [k, label] of TLF_KINDS){
+      const it = menuItem(m, (TLF[k] ? "✓ " : "\u2003") + label, "", () => { TLF[k] = !TLF[k]; applyFilters(); });
+      it.setAttribute("role", "menuitemcheckbox");
+      it.setAttribute("aria-checked", TLF[k]);
+      if(k === "sys") it.classList.add("xadv");
+    }
+  }, "View");
+}
 
 /* ---------- turns ----------------------------------------------------------
    A turn is a prompt and everything Claude did until the next prompt. Each
@@ -1690,6 +1926,33 @@ function turnInfo(s, t){
   const t0 = Date.parse(s.entries[t.start].ts), t1 = Date.parse(s.entries[t.end - 1].ts);
   c.secs = t1 > t0 ? (t1 - t0) / 1000 : 0;
   return c;
+}
+
+// "Read server.py, edited 2 files, ran 3 commands": what a turn did, in words
+function turnSummary(s, t){
+  const read = new Set(), edit = new Set();
+  let cmds = 0, search = 0, web = 0, agents = 0, other = 0, msgs = 0, thought = 0;
+  for(let i = t.start; i < t.end; i++){
+    const e = s.entries[i], inp = e.input || {};
+    const f = String(inp.file_path || inp.notebook_path || "").split(/[\\/]/).pop();
+    if(e.kind === "assistant") msgs++;
+    else if(e.kind === "thinking") thought++;
+    if(e.kind !== "tool") continue;
+    if(e.agent_id) agents++;
+    else if(e.name === "Read") read.add(f);
+    else if(/^(Edit|MultiEdit|Write|NotebookEdit)$/.test(e.name)) edit.add(f);
+    else if(e.name === "Bash") cmds++;
+    else if(/^(Grep|Glob|LS)$/.test(e.name)) search++;
+    else if(/^Web(Fetch|Search)$/.test(e.name)) web++;
+    else other++;
+  }
+  const files = (set, verb) => set.size === 1 && [...set][0] ? `${verb} ${[...set][0]}` : `${verb} ${set.size} file${set.size > 1 ? "s" : ""}`;
+  const n = (k, w) => `${k} ${w}${k > 1 ? "s" : ""}`;
+  const parts = [read.size && files(read, "read"), edit.size && files(edit, "edited"),
+    cmds && "ran " + n(cmds, "command"), search && (search > 1 ? `searched ${search} times` : "searched the code"),
+    web && "browsed the web", agents && "started " + n(agents, "agent"), other && n(other, "other tool")].filter(Boolean);
+  const out = parts.join(", ") || (msgs ? "answered" : thought ? "thought it over" : "no steps");
+  return out[0].toUpperCase() + out.slice(1);
 }
 
 /* ---------- context attribution --------------------------------------------
@@ -1766,7 +2029,7 @@ const NAV = {
   agent: e => e.kind === "tool" && !!e.agent_id,
   skill: e => (e.kind === "meta" && e.sub === "skill") || (e.kind === "tool" && e.name === "Skill"),
 };
-const NAVLAB = {error: "⚠ errors", agent: "agents", skill: "skills"};
+const NAVLAB = {error: "errors", agent: "agents", skill: "skills"};
 
 let VIEW = null;                // the session or subagent on screen
 let CTX_PANEL = (() => { try{ return localStorage.getItem("ember-ctxpanel") === "1"; }catch(e){ return false; } })();
@@ -1780,25 +2043,34 @@ function renderSession(s, ctx){
   }
   const head = document.createElement("div"); head.id = "shead";
   const t = s.totals || {};
+  const where = ctx.isAgent ? "Subagent of " + (projName(ctx.slug) || "this session") : projName(ctx.slug) || "";
   head.innerHTML = `
-    <h2>${esc(cleanTitle(s.title) || s.id)}
-      ${!ctx.isAgent ? '<button class="copy termbtn" id="btnResume" style="font-size:12px;vertical-align:middle" title="claude --resume '+esc(s.id)+'"><span class="xfull">⌨ resume in CLI</span><span class="xsimple">▶ Continue this conversation</span></button>' : ''}
-      <button class="copy termbtn" id="btnExport" style="font-size:12px;vertical-align:middle" title="save this session as one HTML file to share">⇩ export</button>
-      <button class="copy termbtn" id="btnCtx" style="font-size:12px;vertical-align:middle" aria-pressed="${CTX_PANEL}" title="what is in the context window, by source">◧ context</button></h2>
-    <div class="meta">${esc(s.model||"")} · <span class="nent">${s.entries.length}</span> timeline entries
-      ${s.sidechain_msgs? " · "+s.sidechain_msgs+" sidechain msgs":""}
-      <span class="live" hidden title="following this session: new entries appear as they are written">● live</span>
+    <div class="shtop"><div class="shtitle">
+        <div class="shproj">${esc(where)}</div>
+        <h2 title="${esc(cleanTitle(s.title) || s.id)}">${esc(cleanTitle(s.title) || s.id)}</h2></div>
+      <div class="shact">
+        <button class="btn-quiet" id="btnExport" title="save this session as one HTML file to share">Export</button>
+        <button class="btn-quiet" id="btnCtx" aria-pressed="${CTX_PANEL}" title="what is in the context window, by source">Context</button>
+        ${!ctx.isAgent ? `<button class="btn-primary" id="btnResume" title="claude --resume ${esc(s.id)}"><span class="xfull">Resume in terminal</span><span class="xsimple">Continue this conversation</span></button>` : ""}
+      </div></div>
+    <div class="meta shmeta" title="${s.entries.length} timeline entries${s.sidechain_msgs ? ", " + s.sidechain_msgs + " sidechain messages" : ""}">
+      <span class="live" hidden title="following this session: new entries appear as they are written"><i class="livedot"></i>live</span>
+      <span>${esc(shortModel(s.model) || "")}</span><span class="stats">${statsHtml(t)}</span>
       <span class="cachet"></span></div>
-    <div class="stats">${statsHtml(t)}</div>
-    <div class="chips">${chipsHtml(s)}</div>
-    <div class="toggles">
-      <label><input type="checkbox" id="tgThink" checked> thinking</label><button class="gl" data-gl="thinking" aria-label="What is thinking?">?</button>
-      <label><input type="checkbox" id="tgTools" checked> tool calls</label><button class="gl" data-gl="tool" aria-label="What is a tool call?">?</button>
-      <label class="xadv"><input type="checkbox" id="tgSys"> system / commands</label>
-      <label><input type="checkbox" id="tgAgents" checked> agents</label>
+    <div class="shbar">
+      <span class="seg" role="radiogroup" aria-label="Show">
+        <button role="radio" data-mode="all" aria-checked="true">Everything</button>
+        <button role="radio" data-mode="prompts" aria-checked="false">Prompts and answers</button></span>
+      <button class="btn-quiet" id="btnView" aria-haspopup="menu" title="which kinds of step to show">View ▾</button>
+      <button class="gl" data-gl="tool" aria-label="What is a tool call?">?</button>
+      <span class="chips">${chipsHtml(s)}</span>
       <span class="keyhint" title="with the timeline focused">j/k turns · e errors · a agents · s skills (⇧ = back)</span>
     </div>`;
   mountHeader(head);
+  head.querySelectorAll(".seg [data-mode]").forEach(b => b.onclick = () => {
+    TLF.steps = b.dataset.mode === "all"; applyFilters(); });
+  head.querySelector("#btnView").onclick = ev => {
+    if(document.getElementById("menu")) closeMenu(); else viewMenu(ev.currentTarget); };
   head.querySelector("#btnExport").onclick = () => exportSession(s);
   const rbtn = head.querySelector("#btnResume");
   if(rbtn) rbtn.onclick = () => openTerm("resume",
@@ -1806,14 +2078,11 @@ function renderSession(s, ctx){
      label: "resume · " + (projName(ctx.slug) || s.id.slice(0,8))});
 
   const V = {s, ctx, head, depth: 0, turns: groupTurns(s.entries), turnEls: [], rendered: 0,
-             rows: new Map(), open: new Set(), shut: new Set(), navPos: {}};
+             rows: new Map(), open: new Set(), expanded: new Set(), navPos: {}};
   VIEW = V;
 
   if((s.context_series||[]).length){
     main.appendChild(renderChart(s.context_series, i => jumpTo(V, i)));
-    const lbl = document.createElement("div"); lbl.id="chartlabel";
-    lbl.textContent = "Context window per request: faint = cache read, solid = cache write, top = uncached input. Red = probable compaction. Click a bar to jump to that turn.";
-    main.appendChild(lbl);
   }
 
   // agents whose Task call is not in this timeline (teammates, older
@@ -1827,7 +2096,7 @@ function renderSession(s, ctx){
     for(const a of loose){
       const el = ctl(document.createElement("span"));
       el.className = "agentbox";
-      el.textContent = `🤖 ${(a.stats && a.stats.type) || a.file.replace(/^agent-|\.jsonl$/g, "")} (${fmtBytes(a.size)})`;
+      el.textContent = `${(a.stats && a.stats.type) || a.file.replace(/^agent-|\.jsonl$/g, "")} (${fmtBytes(a.size)})`;
       el.title = a.file;
       el.onclick = () => openSubagent(ctx.slug, ctx.id, a.file);
       box.appendChild(el);
@@ -1859,15 +2128,7 @@ function renderSession(s, ctx){
        main.scrollTop + main.clientHeight > main.scrollHeight - 900) renderChunk(V);
   };
 
-  const applyToggles = () => {
-    tl.classList.toggle("hideThink", !$("#tgThink").checked);
-    tl.classList.toggle("hideTools", !$("#tgTools").checked);
-    tl.classList.toggle("hideSys", !$("#tgSys").checked);
-    tl.classList.toggle("hideAgents", !$("#tgAgents").checked);
-  };
-  ["tgThink","tgTools","tgSys","tgAgents"].forEach(id=>$("#"+id).onchange=applyToggles);
-  applyToggles();
-  V.applyToggles = applyToggles;
+  applyFilters();
   renderChunk(V);
   renderCtxPanel(V);
   head.querySelector("#btnCtx").onclick = ev => {
@@ -1882,16 +2143,9 @@ function renderSession(s, ctx){
     LIVE = Object.assign(V, {my: openSeq, key: "", busy: false, primed: false, lastChange: 0});
   tickCache();
 
-  // header chips: a tool chip, or errors/agents/skills, jumps to the next one
+  // header chips: errors/agents/skills jump to the next one
   head.querySelector(".chips").onclick = ev => {
-    const c = ev.target.closest(".chip[data-tool], .chip[data-nav]"); if(!c) return;
-    if(c.dataset.nav){ jumpNav(V, c.dataset.nav, 1); return; }
-    const name = c.dataset.tool;
-    if(!$("#tgTools").checked){ $("#tgTools").checked = true; applyToggles(); }
-    const i = nextIndex(V, "tool:" + name, e => e.kind === "tool" && e.name === name, 1);
-    if(i < 0) return;
-    c.title = `${name}: call ${s.entries.slice(0, i+1).filter(e => e.kind === "tool" && e.name === name).length} of ${s.tool_counts[name]} — click for the next`;
-    jumpTo(V, i, false);
+    const c = ev.target.closest(".chip[data-nav]"); if(c) jumpNav(V, c.dataset.nav, 1);
   };
 
   // search deep-link: jump to the first matching entry; turn link: that entry
@@ -1901,6 +2155,7 @@ function renderSession(s, ctx){
       (e.text && e.text.toLowerCase().includes(q)) ||
       (e.kind === "tool" && (JSON.stringify(e.input||{}) + (e.result||"")).toLowerCase().includes(q))));
   } else if(ctx.jump != null) jumpTo(V, +ctx.jump, false);
+  renderStatus();
 }
 
 function renderChunk(V){
@@ -1929,20 +2184,21 @@ function renderTurn(V, k){
   if(first >= t.end) return box;
   const info = turnInfo(s, t), cin = contextIn(s, t.start, t.end);
   const nIn = cin.items.length + cin.groups.length;
+  // folded by default: one line says what the turn did
+  const open = V.expanded.has(t.start);
   const card = document.createElement("div");
-  card.className = "tcard" + (V.shut.has(t.start) ? " shut" : "");
-  const counts = [[info.thinking, "thinking"], [info.tools, "tool call"], [info.messages, "message"],
-                  [info.agents, "agent"]].filter(([n]) => n).map(([n, w]) => `${n} ${w}${n > 1 ? "s" : ""}`);
+  card.className = "tcard" + (open ? "" : " shut");
+  const steps = t.end - first - (info.final >= 0 ? 1 : 0);
   const head = ctl(document.createElement("div"), "button");
   head.className = "thead";
-  head.setAttribute("aria-expanded", !V.shut.has(t.start));
-  head.innerHTML = `<span class="caret">▸</span>${t.prompt == null ? '<b class="tstart">Session start</b>' : "<b>Claude</b>"}
-    ${info.models.length ? `<span class="tmodel">${esc(info.models.join(" → "))}</span>` : ""}
-    <span class="tcounts">${counts.join(", ")}${info.errors ? ` · <span class="terr">${info.errors} error${info.errors > 1 ? "s" : ""}</span>` : ""}</span>
+  head.setAttribute("aria-expanded", open);
+  head.innerHTML = `<span class="caret">▸</span>${t.prompt == null ? '<b class="tstart">Session start</b>' : ""}
+    <span class="tsum">${esc(turnSummary(s, t))}</span>
+    <span class="tcounts">· ${steps} step${steps === 1 ? "" : "s"}${info.secs ? " · " + fmtDur(info.secs) : ""}${info.errors ? ` · <span class="terr">${info.errors} error${info.errors > 1 ? "s" : ""}</span>` : ""}</span>
     <span class="tright">
+      ${info.models.length ? `<span class="tmodel">${esc(info.models.join(" → "))}</span>` : ""}
       ${nIn ? `<button class="ctxbadge" title="what this turn added to the context window">Context +${nIn}</button>` : ""}
       ${info.ctx ? `<span title="context window at the end of this turn; ${fmtTok(info.out)} output tokens">${fmtTok(info.ctx)}</span>` : ""}
-      ${info.secs ? `<span title="wall time of the turn">⏱ ${fmtDur(info.secs)}</span>` : ""}
       ${s.entries[t.start].ts ? `<span class="ts">${fmtDate(s.entries[t.start].ts)}</span>` : ""}
       ${ctx.isAgent ? "" : '<button class="copy tlink" title="copy a link to this turn">link</button>'}
     </span>`;
@@ -1962,7 +2218,7 @@ function renderTurn(V, k){
       return;
     }
     const shut = card.classList.toggle("shut");
-    shut ? V.shut.add(t.start) : V.shut.delete(t.start);
+    shut ? V.expanded.delete(t.start) : V.expanded.add(t.start);
     head.setAttribute("aria-expanded", !shut);
   };
   pop.onclick = ev => { const a = ev.target.closest("[data-jump]"); if(a) jumpTo(V, +a.dataset.jump); };
@@ -2013,9 +2269,12 @@ function renderCtxPanel(V){
     html += `</details>`;
   }
   if(!vc.cats.length) html += `<div class="cpnote">This transcript records no context attachments (older Claude Code versions).</div>`;
+  const tools = toolChipsHtml(V.s);
+  if(tools) html += `<details class="cpcat" open><summary><span>Tools used</span></summary><div class="chips" style="margin:6px 0">${tools}</div></details>`;
   P.innerHTML = html;
   P.onclick = ev => {
     if(ev.target.closest("[data-close]")){ V.head.querySelector("#btnCtx").click(); return; }
+    const tc = ev.target.closest(".chip[data-tool]"); if(tc){ jumpTool(V, tc.dataset.tool, tc); return; }
     const a = ev.target.closest("[data-jump]"); if(a) jumpTo(V, +a.dataset.jump);
   };
 }
@@ -2041,7 +2300,7 @@ function renderRow(V, i){
                + (e.kind === "meta" && e.sub === "note" ? " sysish" : "");
   const label = e.kind === "tool" ? e.name : e.kind === "meta" ? METALAB[e.sub] || "Note"
               : e.api_error ? "API error" : e.queued ? "You (while working)" : ROWLAB[e.kind] || e.kind;
-  const dot = e.kind !== "tool" ? "" : e.result == null && !e.patch
+  const dot = e.kind !== "tool" ? '<span class="rdot blank"></span>' : e.result == null && !e.patch
     ? '<span class="rdot none" title="no result recorded (still running, or interrupted)"></span>'
     : `<span class="rdot ${e.is_error ? "err" : "ok"}"></span>`;
   const head = ctl(document.createElement("div"));
@@ -2049,7 +2308,7 @@ function renderRow(V, i){
   head.setAttribute("aria-expanded", "false");
   head.innerHTML = `<span class="caret">▸</span><span class="tag">${esc(label)}</span>
     <span class="rprev">${esc(rowPreview(e))}</span>
-    <span class="rmeta">${e.tok ? `<span title="estimated tokens">${tilde(e.tok)}</span>` : ""}${dot}${e.dur != null ? `<span title="time to result">${fmtDur(e.dur)}</span>` : ""}</span>`;
+    <span class="rmeta"><span class="rtok" title="estimated tokens">${tilde(e.tok)}</span>${dot}<span class="rdur" title="time to result">${e.dur != null ? fmtDur(e.dur) : ""}</span></span>`;
   el.appendChild(head);
   let built = false;
   el._open = on => {
@@ -2102,7 +2361,8 @@ function jumpTo(V, idx, open = true){
   if(!V.turns.length || idx < 0 || idx >= V.s.entries.length) return;
   const k = turnOf(V.turns, idx), t = V.turns[k];
   while(V.rendered <= k) renderChunk(V);
-  if(V.shut.has(t.start)) V.turnEls[k].querySelector(".thead").click();
+  const card = V.turnEls[k].querySelector(".tcard");
+  if(card && card.classList.contains("shut")) card.querySelector(".thead").click();
   let el = null;
   for(let j = idx; j < t.end && !el; j++){ const c = V.rows.get(j); if(c && c.offsetParent !== null) el = c; }
   el = el || V.turnEls[k];
@@ -2121,11 +2381,23 @@ function nextIndex(V, key, pred, dir){
   }
   return -1;
 }
+// a jump target hidden by a filter: show its kind (and the steps) first
+function showKind(k){
+  if(TLF.steps && TLF[k]) return;
+  TLF.steps = true; TLF[k] = true; applyFilters();
+}
 function jumpNav(V, kind, dir){
-  if(kind === "agent" && !$("#tgAgents").checked){ $("#tgAgents").checked = true; V.applyToggles(); }
-  if(kind !== "agent" && !$("#tgTools").checked){ $("#tgTools").checked = true; V.applyToggles(); }
+  showKind(kind === "agent" ? "agents" : "tools");
   const i = nextIndex(V, kind, NAV[kind], dir);
   if(i >= 0) jumpTo(V, i, kind === "error");
+}
+// a tool chip in the Context panel: the next call of that tool
+function jumpTool(V, name, chip){
+  showKind("tools");
+  const i = nextIndex(V, "tool:" + name, e => e.kind === "tool" && e.name === name, 1);
+  if(i < 0) return;
+  chip.title = `${name}: call ${V.s.entries.slice(0, i + 1).filter(e => e.kind === "tool" && e.name === name).length} of ${V.s.tool_counts[name]} — click for the next`;
+  jumpTo(V, i, false);
 }
 // j/k: the next/previous turn below/above the top of the timeline
 function jumpTurn(V, dir){
@@ -2174,7 +2446,6 @@ poll(tickCache, 1000);
    last few entries (their tool results can land late) from `start`: splice
    them in, re-render the turns from the first changed one, keep what was open. */
 let LIVE = null;
-const LIVE_WINDOW = 600;
 const spliceTail = (entries, r) => entries.slice(0, r.start).concat(r.entries);
 const sessMtime = (slug, id) => ((state.sessions[slug] || []).find(x => x.id === id) || {}).mtime || 0;
 async function liveTick(){
@@ -2224,7 +2495,6 @@ function applyTail(L, r){
     L.more.textContent = `show more (${next ? s.entries.length - next.start : 0} entries remaining)`;
     L.more.style.display = next ? "block" : "none";
   }
-  L.head.querySelector(".nent").textContent = s.entries.length;
   L.head.querySelector(".stats").innerHTML = statsHtml(r.totals || {});
   L.head.querySelector(".chips").innerHTML = chipsHtml(s);
   if((r.context_series || []).length){
@@ -2390,9 +2660,9 @@ function renderEntry(e, ctx, depth){
   }
 
   if(e.kind === "command" && e.cmd) div.className = "entry user cmd";    // a slash command is a prompt
-  const label = e.kind === "command" && e.cmd ? "YOU" : e.kind === "meta" ? (METALAB[e.sub] || "NOTE").toUpperCase()
+  const label = e.kind === "command" && e.cmd ? "You" : e.kind === "meta" ? (METALAB[e.sub] || "NOTE").toUpperCase()
     : e.api_error ? "API ERROR" : e.kind === "hook" ? "HOOK FAILED"
-    : {user:"USER", assistant:"CLAUDE", thinking:"THINKING", command:"COMMAND", system:"SYSTEM"}[e.kind] || e.kind.toUpperCase();
+    : {user:"You", assistant:"Claude", thinking:"THINKING", command:"COMMAND", system:"SYSTEM"}[e.kind] || e.kind.toUpperCase();
   const head = document.createElement("div"); head.className = "head";
   head.innerHTML = `<span class="tag">${esc(label)}</span>
     ${e.system_reminder?'<span class="chip">system-reminder</span>':""} ${ts}`;
@@ -2467,8 +2737,8 @@ function renderChart(series, onJump){
       <rect class="hit" x="${x}" y="0" width="${Math.max(bw, step).toFixed(1)}" height="${H}"/>${segs}
       <title>req ${i+1} — ${fmtTok(p.context)} ctx: ${fmtTok(p.cache_read)} cache read, ${fmtTok(p.cache_creation)} cache write, ${fmtTok(p.input)} uncached; out ${fmtTok(p.output)}${p.compaction?" — COMPACTION":""}${p.entry != null ? "\nclick to jump to this turn" : ""}</title></g>`;
   });
-  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-    <text x="4" y="12" style="fill:var(--dim)" font-size="11">peak ${fmtTok(max)} tokens</text>${bars}</svg>`;
+  wrap.title = `Context window per request, peak ${fmtTok(max)} tokens: faint = cache read, solid = cache write, top = uncached input. Red = probable compaction. Click a bar to jump to that turn.`;
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg>`;
   const go = ev => { const g = ev.target.closest(".cbar"), p = g && series[+g.dataset.i];
     if(p && p.entry != null && onJump){ ev.preventDefault(); onJump(p.entry); } };
   wrap.onclick = go;
@@ -2532,6 +2802,7 @@ function memLint(parsed){
 }
 
 async function showMemory(slug){
+  leaveHome();
   state.active = null; renderTree();
   const my = ++openSeq;
   showState($("#main"), "loading", "Loading memory…");
@@ -2545,7 +2816,7 @@ async function showMemory(slug){
   if(my !== openSeq) return;
   const main = $("#main"); main.innerHTML = "";
   const head = document.createElement("div"); head.id = "shead";
-  head.innerHTML = `<h2>🧠 Project memory</h2><div class="meta">${m.files.length} file(s)</div>`;
+  head.innerHTML = `<h2>Project memory</h2><div class="meta">${m.files.length} file(s)</div>`;
   mountHeader(head);
   const tl = document.createElement("div"); tl.id = "timeline";
   const parsed = m.files.map(f => ({f, ...memFront(f.content)}));
@@ -2615,6 +2886,7 @@ $("#search").addEventListener("keydown", ev=>{
    transcript carry `agent` and open that transcript, with a way back. */
 let lastSearch = null;
 async function runSearch(q, project){
+  leaveHome();
   lastSearch = {q, project: project || null};
   state.active = null; renderTree();
   const my = ++openSeq;
@@ -2626,7 +2898,7 @@ async function runSearch(q, project){
     if(my !== openSeq) return;
     const main = $("#main"); main.innerHTML = "";
     const head = document.createElement("div"); head.id = "shead";
-    head.innerHTML = `<h2>🔍 “${esc(q)}”</h2><div class="meta">${res.length} match(es)${res.length>=300?" (capped)":""}
+    head.innerHTML = `<h2>“${esc(q)}”</h2><div class="meta">${res.length} match(es)${res.length>=300?" (capped)":""}
       ${where ? ` in ${esc(where)} <button class="copy" id="searchAll">search all projects</button>` : " in all projects"}</div>`;
     mountHeader(head);
     const all = head.querySelector("#searchAll");
@@ -2635,7 +2907,7 @@ async function runSearch(q, project){
     const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi");
     for(const r of res){
       const div = ctl(document.createElement("div")); div.className = "sresult";
-      const agent = r.agent ? `<span class="chip" title="${esc(r.agent)}">🤖 ${esc(r.agent.replace(/^agent-|\.jsonl$/g, ""))}</span> ` : "";
+      const agent = r.agent ? `<span class="chip" title="${esc(r.agent)}">agent ${esc(r.agent.replace(/^agent-|\.jsonl$/g, ""))}</span> ` : "";
       div.innerHTML = `<div class="where">${agent}${esc(projName(r.project) || r.project)} / ${esc(r.session.slice(0,8))} · ${esc(r.type)} · ${fmtDate(r.ts)}</div>
         <div>${esc(r.snippet).replace(rx, m=>`<mark>${m}</mark>`)}</div>`;
       div.onclick = () => openSearchHit(r, q);
@@ -2661,7 +2933,15 @@ async function openSearchHit(r, q){
 /* ---------- embedded terminal (xterm.js + PTY over SSE) ---------- */
 const TM = { terms: new Map(), active: null };
 
-function showTermCell(){ $("#termempty").style.display = "none"; fitActive(); }
+function showTermCell(){ leaveHome(); $("#termempty").style.display = "none"; showTerm(true); }
+// fold the terminal down to its bar (remembered); any terminal action unfolds it
+function showTerm(on){
+  $("#colL").classList.toggle("termhidden", !on);
+  $("#termHide").textContent = on ? "Hide" : "Show";
+  $("#termHide").setAttribute("aria-expanded", on);
+  try{ localStorage.setItem("ember-termhidden", on ? "" : "1"); }catch(e){}
+  fitActive();
+}
 
 function b64ToBytes(b64){
   const bin = atob(b64); const a = new Uint8Array(bin.length);
@@ -2856,6 +3136,7 @@ const THEMES = {
     termbg:"#002240", bar:"#0088ff", addfg:"#3ad900", delfg:"#ff6f9a"},
 };
 const DEFAULT_THEME = "Ember Dark";
+const MAIN_THEMES = 4;      // the first four above lead the menu; the rest are "More themes"
 function themeName(){
   const n = localStorage.getItem("cdl-theme");
   return THEMES[n] ? n : DEFAULT_THEME;
@@ -2892,10 +3173,11 @@ function applyTheme(name){
 }
 function pickTheme(anchor){
   openMenu(anchor, m => {
-    const h = document.createElement("div");
-    h.className = "hdr"; h.textContent = "Theme";
-    m.appendChild(h);
-    for(const name of Object.keys(THEMES)){
+    const hdr = text => { const h = document.createElement("div");
+                          h.className = "hdr"; h.textContent = text; m.appendChild(h); };
+    hdr("Theme");
+    Object.keys(THEMES).forEach((name, i) => {
+      if(i === MAIN_THEMES) hdr("More themes");
       const t = THEMES[name];
       const it = menuItem(m, "", t.light ? "light theme" : "dark theme",
                           () => { applyTheme(name); announce("Theme: " + name); });
@@ -2904,7 +3186,7 @@ function pickTheme(anchor){
       it.innerHTML = `<span class="swatch" style="background:${t.bg};border-color:${t.border}">
           <i style="background:${t.accent}"></i><i style="background:${t.ok}"></i><i style="background:${t.think}"></i></span>
         ${esc(name)}${name === themeName() ? ' <span style="color:var(--ok)">✓</span>' : ""}`;
-    }
+    });
   }, "Theme");
 }
 applyTheme(themeName());
@@ -2929,7 +3211,7 @@ function pickClaudeFolder(anchor){
     // run long enough to push anything after it out of reach
     menuItem(m, "~  home", String(fsHome || "~"),
              () => openTerm("claude", {label: "claude · ~"}));
-    menuItem(m, "🗂  browse…", "pick any folder in the Files pane",
+    menuItem(m, "Browse…", "pick any folder in the Files pane",
              () => vizTab("files"));
     const projs = (state.projects || []).filter(p => p.path);
     if(projs.length){
@@ -2951,8 +3233,9 @@ function pickClaudeFolder(anchor){
    created at the right size (spawning first meant the child drew its first
    frames at a default 100x30 and kept that wrapping). Shown at once so it
    can be measured; the other tabs hide. */
-async function termView(kind, label){
-  showTermCell();
+// quiet: a terminal re-attached at load must not leave Home or unfold the terminal
+async function termView(kind, label, quiet){
+  if(quiet) $("#termempty").style.display = "none"; else showTermCell();
   const container = document.createElement("div");
   $("#termbody").appendChild(container);
   const term = new Terminal({
@@ -3009,7 +3292,7 @@ async function openTerm(kind, opts = {}){
     const prev = TM.terms.get(TM.active);
     if(prev) prev.container.style.display = "block";   // put back what was showing
     else {
-      $("#termempty").innerHTML = `⚠️ ${esc(e.message)}`;
+      $("#termempty").innerHTML = esc(e.message);
       $("#termempty").style.display = "block";
     }
     toast("Could not start the terminal: " + e.message, {kind: "err"});
@@ -3030,7 +3313,7 @@ async function reattachTerms(){
   try{ list = await api("/api/term/list"); }catch(e){ return; }
   for(const info of list){
     if(TM.terms.has(info.id) || !info.alive) continue;
-    const t = await termView(info.kind, info.label);
+    const t = await termView(info.kind, info.label, true);
     attachTerm(t, info, true);
   }
 }
@@ -3163,7 +3446,7 @@ function renderTabs(){
     el.dataset.id = id; el.dataset.fk = "t:" + id;
     el.innerHTML = `<span>${esc(t.label)}${t.dead ? '<span class="sr-only"> (exited)</span>' : ""}</span>
       <button class="x" title="close" aria-label="Close ${esc(t.label)}" tabindex="${on ? 0 : -1}">✕</button>`;
-    el.onclick = () => activateTerm(id);
+    el.onclick = () => { showTerm(true); activateTerm(id); };   // a folded terminal unfolds
     el.querySelector(".x").onclick = e => { e.stopPropagation(); closeTerm(id); };
     box.appendChild(el);
   }
@@ -3193,11 +3476,12 @@ $("#btnQuit").onclick = async () => {
   document.body.innerHTML = `<div class="placeholder" style="padding-top:30vh">
     ⏻ Server stopped. Close this tab — double-click <b>Ember</b> to relaunch.</div>`;
 };
-$("#btnTerm").onclick = () => {
-  if(TM.terms.size){ activateTerm(TM.active || TM.terms.keys().next().value); }
-  else openTerm("claude", {label: "claude · ~"});
+$("#btnNewChat").onclick = () => {
+  if(document.getElementById("menu")) closeMenu();
+  else pickClaudeFolder($("#btnNewChat"));
 };
 $("#btnShell").onclick = () => openTerm("shell", {label: "shell · ~"});
+$("#termHide").onclick = () => showTerm($("#colL").classList.contains("termhidden"));
 $("#btnTheme").onclick = () => {
   if(document.getElementById("menu")) closeMenu();
   else pickTheme($("#btnTheme"));
@@ -3386,10 +3670,10 @@ if(localStorage.getItem("cdl-headcollapsed")){
     APP.updates = r.updates !== false;
     if(APP.updates) checkUpdate(false);
     if(r.has_terminal === false){   // e.g. Windows older than 10 1809
-      $("#termempty").innerHTML = `⚠️ Terminal unavailable — ${esc(r.terminal_blocked||"")}.
+      $("#termempty").innerHTML = `Terminal unavailable — ${esc(r.terminal_blocked||"")}.
         <br>Run <b>claude</b> in your own terminal instead; every other pane
         (sessions, tokens, viz, files) works normally.`;
-      ["btnShell","btnClaudeHome","btnTerm"].forEach(id => {
+      ["btnShell","btnClaudeHome","btnNewChat"].forEach(id => {
         const b = $("#" + id); if(b) b.style.display = "none"; });
     }
   }catch(_){}
@@ -3403,6 +3687,17 @@ function fmtCountdown(secs){
   return `resets in ${h}h${String(m).padStart(2,"0")}`;
 }
 let lastUsage = null;
+const pctColor = p => p > 90 ? "var(--err)" : p > 65 ? "var(--tool)" : "var(--ok)";
+/* where the 5-hour window stands: the official figure (Live limits add-on)
+   when there is one, else this block against your own 90th-percentile block */
+function usageNow(u){
+  const o = u && u.official, f = o && o.five_hour, b = u && u.block, nowS = Date.now() / 1000;
+  if(f && f.used_percentage != null)
+    return {pct: +f.used_percentage, of: "of your 5-hour limit", reset: f.resets_at ? fmtCountdown(f.resets_at - nowS) : ""};
+  if(b && u.baseline && u.baseline.p90)
+    return {pct: b.output / u.baseline.p90 * 100, of: "of a busy 5-hour block", reset: fmtCountdown(b.end - u.generated), est: true};
+  return null;
+}
 /* ---------- usage history: a calendar heatmap of output tokens per day ---------- */
 const ymd = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 // 0 for an idle day, else 1–4 by quartile of the active days (pure; tested)
@@ -3492,9 +3787,12 @@ async function refreshUsage(){
       <div class="ubar" title="current block output vs the 90th percentile of your ${u.baseline.blocks} historical 5h blocks (best ever: ${fmtTok(u.baseline.max)})">
         <div style="width:${Math.min(100,pct).toFixed(0)}%;background:${color}"></div></div></div>`;
     }
-    // official figures (the "Live limits" add-on) lead; P90 becomes the estimate
-    const o = u.official, nowS = Date.now() / 1000;
-    const pctColor = p => p > 90 ? "var(--err)" : p > 65 ? "var(--tool)" : "var(--ok)";
+    // one sentence leads: where the 5-hour window stands
+    const o = u.official, nowS = Date.now() / 1000, now5 = usageNow(u);
+    const lead = now5 ? `<div class="ulead"><div class="ubig"><b class="num">${Math.round(now5.pct)}%</b>${now5.of}</div>
+        <div class="ubar" role="img" aria-label="${Math.round(now5.pct)}% ${now5.of}"><div style="width:${Math.min(100, now5.pct).toFixed(0)}%;background:${pctColor(now5.pct)}"></div></div>
+        <div class="ureset2 udetail" style="margin:0">${now5.reset}${now5.est ? ` · <span title="this block's output against the 90th percentile of your ${u.baseline.blocks} past 5-hour blocks">estimated from your transcripts</span>` : ""}</div></div>`
+      : `<div class="ulead"><div class="ubig">No 5-hour block running</div><div class="udetail" style="margin:2px 0 0">A block starts with your next message.</div></div>`;
     const limitBar = (label, w) => {
       if(!w || w.used_percentage == null) return "";
       const p = +w.used_percentage;
@@ -3502,17 +3800,13 @@ async function refreshUsage(){
         <div class="ubar" role="img" aria-label="${label}: ${p.toFixed(0)}% used"><div style="width:${Math.min(100, p).toFixed(0)}%;background:${pctColor(p)}"></div></div>
         ${w.resets_at ? `<div class="urow ureset"><span></span><span>${fmtCountdown(w.resets_at - nowS)}</span></div>` : ""}`;
     };
-    const officialPart = o ? `<div class="uhead">Official limits</div>`
-      + limitBar("5-hour limit", o.five_hour) + limitBar("7-day limit", o.seven_day)
-      + `<div class="urow" style="color:var(--dim)"><span>session ${esc(String(o.session_id || "").slice(0, 8))}${o.model ? " · " + esc(o.model) : ""}</span>
+    // the raw counts: one details row under the lead; the 7-day limit when known
+    const details = b ? `<div class="udetail">This block: <b class="num">${fmtTok(b.output)}</b> output · ${b.requests} requests · ${Math.round(Math.min(100, (u.generated - b.start) / (b.end - b.start) * 100))}% of its 5 hours gone<button class="gl" data-gl="block" aria-label="What is the 5-hour block?">?</button></div>` : "";
+    const officialPart = o ? limitBar("7-day limit", o.seven_day)
+      + `<div class="urow xadv" style="color:var(--dim)"><span>session ${esc(String(o.session_id || "").slice(0, 8))}${o.model ? " · " + esc(o.model) : ""}</span>
           <span>${o.context_pct != null ? "context " + Math.round(o.context_pct) + "%" : ""}${o.cost_usd != null ? " · $" + (+o.cost_usd).toFixed(2) : ""}</span></div>
-        <div class="uhead">Estimate from local transcripts</div>` : "";
-    const blockPart = officialPart + (b ? `
-      <div class="urow"><span>current 5h block<button class="gl" data-gl="block" aria-label="What is the 5-hour block?">?</button></span><b>${fmtTok(b.output)}</b></div>
-      <div class="urow" style="color:var(--dim)"><span>requests</span><b style="color:var(--dim)">${b.requests}</b></div>
-      <div class="ubar" title="time elapsed in this 5h block">
-        <div style="width:${Math.min(100,((u.generated-b.start)/(b.end-b.start))*100).toFixed(0)}%"></div></div>${limitPart}`
-      : `<div class="vizempty">no active 5h block — idle</div>`);
+        ${limitPart}` : "";      // without official figures the lead already is the P90 estimate
+    const blockPart = lead + details + officialPart;
     const models = Object.entries(u.week_by_model||{}).sort((a,b2)=>b2[1]-a[1])
       .map(([m,v])=>`<div class="modelrow"><span>${esc(m.replace(/^claude-/,""))}</span><span>${fmtTok(v)}</span></div>`).join("");
     const max = Math.max(...u.hourly, 1);
@@ -3520,12 +3814,13 @@ async function refreshUsage(){
     const bars = u.hourly.map((v,i)=>
       `<rect x="${(i*bw+1).toFixed(1)}" y="${(H - v/max*(H-4)).toFixed(1)}" width="${(bw-2).toFixed(1)}" height="${(v/max*(H-4)).toFixed(1)}" style="fill:var(--bar)"><title>${fmtTok(v)} output tokens</title></rect>`).join("");
     body.innerHTML = blockPart + `
-      <div class="urow"><span>today (output)</span><b>${fmtTok(u.today.output)}</b></div>
+      <div class="uhead">Output tokens</div>
+      <div class="urow"><span>today</span><b>${fmtTok(u.today.output)}</b></div>
       <div class="urow"><span>last 7 days</span><b>${fmtTok(u.week.output)}</b></div>
       <div style="margin-top:8px;color:var(--dim);font-size:11px">last 24h (output/hour)</div>
       <svg id="sparkline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg>
       <div class="xadv"><div style="margin-top:8px;color:var(--dim);font-size:11px">by model, 7 days</div>${models}</div>
-      <button class="copy" id="uHist" style="margin:8px 0 0;font-size:11.5px" title="output tokens per day, by project and model">📅 history (30–180 days)</button>
+      <button class="copy" id="uHist" style="margin:8px 0 0;font-size:11.5px" title="output tokens per day, by project and model">History (30–180 days)</button>
       <div style="margin-top:10px;color:var(--dim);font-size:10.5px">Computed from local transcripts (output tokens, deduped by request).${o
         ? " The official limits above come from Claude Code's statusline, " + fmtDur(Math.max(0, nowS - o.at)) + " ago."
         : addonInstalled("live-limits")
@@ -3537,6 +3832,7 @@ async function refreshUsage(){
     $("#blockreset").textContent = o && o.five_hour && o.five_hour.resets_at
       ? fmtCountdown(o.five_hour.resets_at - nowS) : b ? fmtCountdown(b.end - u.generated) : "";
     renderStatus();
+    if(state.layout === "home" && HOME) renderHome();
   }catch(e){ showState($("#usagebody"), "error", "Could not compute token use: " + e.message,
                        {label: "Retry", run: refreshUsage}); }
 }
@@ -3560,7 +3856,7 @@ function previewImg(wrap){
   return im;
 }
 /* what each preview pane shows, when it can take comments (image or PDF):
-   💬 Comment works on whichever of Viz / Files is in front */
+   Comment works on whichever of Output / Files is in front */
 const REVIEWABLE = {};
 function syncReviewBtn(){
   const files = $("#filesview").style.display !== "none";
@@ -3681,7 +3977,7 @@ function graphOfferCard(o){
   const card = document.createElement("div");
   card.className = "graphoffer";
   const have = addonInstalled("graphify");
-  card.innerHTML = `<div>🕸 <b>${esc(o.name)}</b> has no knowledge graph yet.
+  card.innerHTML = `<div><b>${esc(o.name)}</b> has no knowledge graph yet.
       ${have ? "Build one with <code>/graphify</code>?"
              : "Graphs come from the graphify add-on, which isn't installed yet."}</div>
     <div class="goact">
@@ -3701,11 +3997,11 @@ function graphOfferCard(o){
   return card;
 }
 
-function showViz(f){
+function showViz(f, dir){
   vizActive = f.name;
   ensureCookie();
   setPreview("#vizframe", "#vizpdf",
-             "/api/fs/file?path=" + encodeURIComponent(joinPath(vizDir, f.name))
+             "/api/fs/file?path=" + encodeURIComponent(joinPath(dir || vizDir, f.name))
                + "&t=" + f.mtime,
              f.kind === "application/pdf", !/html|pdf/.test(f.kind));
   [...document.querySelectorAll(".vizfile")].forEach(el =>
@@ -3786,6 +4082,7 @@ async function openReview(path, from){
   $("#vizview").style.display = "none";
   $("#filesview").style.display = "none";
   $("#reviewview").style.display = "flex";
+  inspMark(RV.from === "files" ? "files" : "output");
   $("#rvpager").style.display = RV.pdf ? "" : "none";
   $("#rvname").textContent = baseName(path);
   $("#rvname").title = path;
@@ -4173,8 +4470,13 @@ document.addEventListener("keydown", e => {
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const PANES = ["cell-main", "cell-term", "cell-usage", "cell-plan", "cell-viz"];
 function focusPane(id){
+  leaveHome();
   if(maxedCell && maxedCell !== id) toggleMax(maxedCell);
   if($("#" + id).closest("#colR")) setRight(true);
+  if(id === "cell-term") showTerm(true);
+  const insp = {"cell-usage": "usage", "cell-plan": planView,
+                "cell-viz": $("#filesview").style.display !== "none" ? "files" : "output"}[id];
+  if(insp) inspMark(insp);
   const t = TM.terms.get(TM.active);
   const target = {
     "cell-main": () => $("#main"),
@@ -4187,9 +4489,10 @@ function focusPane(id){
   fitActive();
 }
 document.addEventListener("keydown", e => {
-  const digit = /^Digit([1-5])$/.exec(e.code);
+  const digit = /^Digit([0-5])$/.exec(e.code);
   if(digit && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey){
-    focusPane(PANES[+digit[1] - 1]);
+    if(digit[1] === "0") setRight($("#workspace").classList.contains("noright"));
+    else focusPane(PANES[+digit[1] - 1]);
   } else if(e.shiftKey && !e.altKey && (e.key === "m" || e.key === "M")
             && (IS_MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)){
     const cell = document.activeElement && document.activeElement.closest(".cell");
@@ -4292,7 +4595,7 @@ async function checkUpdate(manual){
    / files in the Files folder. APG combobox + listbox: focus stays in the
    input, aria-activedescendant names the selected option. */
 const K = s => IS_MAC ? s : s.replace(/⌘/g, "Ctrl+").replace(/⇧/g, "Shift+").replace(/⌃/g, "Ctrl+").replace(/⌥/g, "Alt+");
-const PANE_NAMES = ["Session", "Terminal", "Usage", "Plan", "Viz"];
+const PANE_NAMES = ["Session", "Terminal", "Usage", "Plan", "Output"];
 const CP = {items: [], sel: 0, prev: null, ran: false, fs: null, hits: null, hitsQ: "", timer: null, seq: 0};
 
 // the app's global keys: intercepted even while xterm has focus. Off macOS
@@ -4339,7 +4642,13 @@ function cpActions(){
   add("Show Config", () => { setRight(true); planTab("config"); focusPane("cell-plan"); });
   add("Show Viz", () => { setRight(true); vizTab("viz"); focusPane("cell-viz"); });
   add("Show Files", () => { setRight(true); vizTab("files"); focusPane("cell-viz"); });
-  add("Toggle right column", () => $("#btnRight").click());
+  add($("#workspace").classList.contains("noright") ? "Show the inspector" : "Hide the inspector",
+      () => setRight($("#workspace").classList.contains("noright")), K("⌃0"));
+  add($("#colL").classList.contains("termhidden") ? "Show the terminal" : "Hide the terminal",
+      () => showTerm($("#colL").classList.contains("termhidden")));
+  if(state.layout !== "home") add("Go to Home", () => setLayout("home"));
+  for(const [l, name] of [["workspace", "Workspace"], ["panes", "All panes"]])
+    if(state.layout !== l) add(`Layout: ${name}`, () => setLayout(l));
   add("Toggle session header", toggleHeader);
   add("Open add-ons", () => openAddons());
   if(lastSearch) add(`Re-run search “${lastSearch.q}”`, () => runSearch(lastSearch.q, lastSearch.project));
@@ -4416,7 +4725,7 @@ function cpSearch(q){
   if(CP.hitsQ === q && CP.hits) for(const r of CP.hits.slice(0, 50)){
     const snip = String(r.snippet || "").replace(/\s+/g, " ").slice(0, 160);
     const m = fuzzy(q, snip);
-    items.push({group: r.agent ? "🤖 " + r.agent.replace(/^agent-|\.jsonl$/g, "") : "Match",
+    items.push({group: r.agent ? "agent " + r.agent.replace(/^agent-|\.jsonl$/g, "") : "Match",
                 label: snip, html: m ? m.html : esc(snip),
                 meta: (projName(r.project) || r.project) + " / " + r.session.slice(0, 8),
                 run: () => openSearchHit(r, q)});
@@ -4435,17 +4744,40 @@ function cpSearch(q){
   }
   return items;
 }
+// the empty palette: what you most likely want, then recent chats, then the rest
+function cpStart(){
+  const out = [], sec = (sec, it) => out.push(Object.assign({html: esc(it.label), sec}, it));
+  const [slug, id] = (state.active || "").split("/");
+  if(id && !(VIEW && VIEW.ctx.isAgent)) sec("Suggested", {group: "Action", label: "Resume this conversation in a terminal",
+    run: () => $("#tnResume").click()});
+  sec("Suggested", {group: "Action", label: "New chat…", run: () => { leaveHome(); pickClaudeFolder($("#btnNewChat")); }});
+  if(VIEW && state.layout !== "home" && VIEW.s.entries.some(NAV.error))
+    sec("Suggested", {group: "Action", label: "Jump to the next error", keys: "e", run: () => jumpNav(VIEW, "error", 1)});
+  if(state.layout !== "home") sec("Suggested", {group: "Action", label: "Go to Home", run: () => setLayout("home")});
+  for(const r of (HOME && HOME.recent) || [])
+    sec("Recent chats", {group: projName(r.slug) || baseName(r.path), label: cleanTitle(r.title) || "(untitled)",
+                          meta: r.live ? "live" : agoText(r.mtime), run: () => openFromHome(r.slug, r.id)});
+  for(const it of rankItems([...cpActions(), ...cpSessions(), ...cpProjects()], "")) out.push(Object.assign({sec: "Everything"}, it));
+  return out;
+}
 function cpRender(){
   const raw = $("#cpin").value;
   const mode = /^[>@#\/]/.test(raw) ? raw[0] : "";
   const q = (mode ? raw.slice(1) : raw).trim();
   if(mode === "/") cpLoadFiles();
   CP.items = mode === "#" ? cpSearch(q)
+    : !mode && !q ? cpStart()
     : rankItems(mode === ">" ? cpActions() : mode === "@" ? cpSessions() : mode === "/" ? cpFiles()
                 : [...cpActions(), ...cpSessions(), ...cpProjects()], q);
   CP.sel = Math.max(0, Math.min(CP.sel, CP.items.length - 1));
   const ul = $("#cplist"); ul.innerHTML = "";
+  let sec = null;
   CP.items.forEach((it, i) => {
+    if(it.sec && it.sec !== sec){
+      sec = it.sec;
+      ul.appendChild(Object.assign(document.createElement("li"), {className: "cpsec label", textContent: sec}))
+        .setAttribute("role", "presentation");
+    }
     const li = document.createElement("li");
     li.className = "cpi"; li.id = "cp-" + i;
     li.setAttribute("role", "option");
@@ -4487,6 +4819,7 @@ function cpSet(prefix){
 }
 function openPalette(prefix){
   const d = $("#cp");
+  if(!HOME) loadHome().then(() => { if(d.open && !$("#cpin").value) cpRender(); });
   if(!d.open){ CP.prev = document.activeElement; CP.ran = false; CP.fs = null; closeMenu(); showDialog(d); }
   cpSet(prefix || "");
 }
@@ -4511,6 +4844,7 @@ function openKeys(){
              ["↑ ↓ → ← Enter", "Move in the sidebar tree; c starts claude in a project"],
              ["j / k", "Session timeline: next / previous turn"],
              ["e  a  s", "Session timeline: next error, agent, skill (with ⇧: previous)"],
+             ["← →", "Inspector tabs (Workspace): move between Plan, Usage, Output, Files"],
              ["Delete", "Close the focused terminal tab"]]);
   $("#keystable").innerHTML = rows.map(([k, l]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(l)}</td></tr>`).join("");
   showDialog($("#keys"));
@@ -4529,16 +4863,26 @@ function setConn(ok){
 }
 function renderStatus(){
   const pj = state.openProject;
-  $("#sbProj").textContent = "⌂ " + (pj ? (projName(pj) || pj) : planCwd ? baseName(planCwd) : "no project");
+  $("#sbProj").textContent = (pj ? (projName(pj) || pj) : planCwd ? baseName(planCwd) : "no project");
   const t = TM.terms.get(TM.active);
-  $("#sbTerm").textContent = t ? `⌨ ${t.label}${TM.terms.size > 1 ? ` (${TM.terms.size} tabs)` : ""}` : "⌨ no terminal";
-  $("#sbPlan").textContent = planCounts && planCounts.total ? `✓ ${planCounts.done}/${planCounts.total}` : "✓ –";
-  const u = lastUsage, o = u && u.official, f = o && o.five_hour, b = u && u.block, nowS = Date.now() / 1000;
-  $("#sbUsage").textContent =
-      f && f.used_percentage != null ? `⚡ 5h ${Math.round(f.used_percentage)}%${f.resets_at ? " · " + fmtCountdown(f.resets_at - nowS) : ""}`
-    : b && u.baseline && u.baseline.p90 ? `⚡ ${fmtTok(b.output)} · ${Math.round(b.output / u.baseline.p90 * 100)}% of P90 · ${fmtCountdown(b.end - u.generated)}`
-    : "⚡ idle";
-  $("#sbViz").textContent = "👁 " + (shortHome(vizDir) || "viz");
+  $("#sbTerm").textContent = t ? `${t.label}${TM.terms.size > 1 ? ` (${TM.terms.size} tabs)` : ""}` : "no terminal";
+  renderTopnav();
+}
+/* top bar: where you are, the 5-hour meter, and Resume for the open conversation */
+function renderTopnav(){
+  const [slug, id] = (state.active || "").split("/");
+  const meta = id && ((state.sessions[slug] || []).find(x => x.id === id) || {});
+  const title = VIEW && VIEW.ctx.id === id ? cleanTitle(VIEW.s.title) : meta ? cleanTitle(meta.title) : "";
+  const pj = state.openProject || slug;
+  $("#crumb").innerHTML = state.layout === "home" ? "<b>Home</b>"
+    : pj ? `<a data-c="proj" title="show it in the sidebar">${esc(projName(pj) || pj)}</a>${title ? ` / <b title="${esc(title)}">${esc(title)}</b>` : ""}`
+    : "<span>No conversation open</span>";
+  const u = usageNow(lastUsage);
+  $("#tnUsageT").textContent = u ? `5h ${Math.round(u.pct)}%` : "5h idle";
+  $("#tnUsageBar").style.width = u ? Math.min(100, u.pct).toFixed(0) + "%" : "0";
+  $("#tnUsageBar").style.background = u ? pctColor(u.pct) : "";
+  $("#tnUsage").title = u ? `${Math.round(u.pct)}% ${u.of}${u.reset ? " · " + u.reset : ""} · click for the Usage tab` : "no 5-hour block running · click for the Usage tab";
+  $("#tnResume").hidden = !id || state.layout === "home" || !!(VIEW && VIEW.ctx.isAgent);
 }
 $("#sbKeys").textContent = K("⌘K");
 $("#sbKeys").title = `Command palette (${K("⌘K")}) · shortcuts: ?`;
@@ -4548,9 +4892,14 @@ $("#sbProj").onclick = () => {
   el.focus();
 };
 $("#sbTerm").onclick = () => focusPane("cell-term");
-$("#sbPlan").onclick = () => { setRight(true); planTab("plan"); focusPane("cell-plan"); };
-$("#sbUsage").onclick = () => focusPane("cell-usage");
-$("#sbViz").onclick = () => { setRight(true); vizTab("files"); if(vizDir) loadFs(vizDir); focusPane("cell-viz"); };
+$("#crumb").onclick = ev => { if(ev.target.closest('[data-c="proj"]')) $("#sbProj").click(); };
+$("#tnSearch").onclick = () => openPalette("");
+$("#tnSearchK").textContent = K("⌘K");
+$("#tnUsage").onclick = () => focusPane("cell-usage");
+$("#tnResume").onclick = () => {
+  const [slug, id] = (state.active || "").split("/");
+  if(id) openTerm("resume", {project: slug, session: id, label: "resume · " + (projName(slug) || id.slice(0, 8))});
+};
 $("#sbConn").onclick = async () => {
   try{
     const h = await api("/api/health");
@@ -4560,8 +4909,10 @@ $("#sbConn").onclick = async () => {
   }catch(e){ toast("The server is not answering: " + e.message, {kind: "err"}); }
 };
 $("#search").title = `Filter projects; Enter searches transcripts (the open project first) · ${K("⌘K")} command palette`;
+$("#search").placeholder = "Filter projects · Enter searches";
 document.querySelectorAll(".maxbtn").forEach(b => b.title = `maximize / restore (${K("⌘⇧M")})`);
-$("#btnTerm").title = `open a terminal (${K("⌃2")} focuses it)`;
+$("#searchK").textContent = K("⌘K");
+$("#searchK").onclick = () => openPalette("");
 
 /* ---------- config inventory (⚙ Config tab) -------------------------------
    What is installed in ~/.claude, and what it costs you in context. The split
@@ -4583,6 +4934,7 @@ function planTab(view){
   $("#planbar").style.display = (view === "plan" && planFile) ? "flex" : "none";
   if(view === "config"){ refreshConfig(); }
   else { planStamp = ""; refreshPlan(true); }   // force a repaint of bar + count
+  inspMark(view);
 }
 document.querySelectorAll(".ptab").forEach(t => t.onclick = () => planTab(t.dataset.view));
 
@@ -4668,22 +5020,22 @@ function renderConfigSide(box, inv, label){
 
 function setRight(on){
   $("#workspace").classList.toggle("noright", !on);
-  $("#btnRight").setAttribute("aria-pressed", on);
   fitActive();
 }
-$("#btnRight").onclick = () => setRight($("#workspace").classList.contains("noright"));
 if(window.innerWidth < 900) setRight(false);
 
 /* ---------- file explorer (Files tab, RStudio-style) ---------- */
 let fsPath = null;        // current explorer dir; follows the selected project
 let fsHome = "";
-function vizTab(view){
+// keepInsp: switch the pane's tab without bringing it forward in the Workspace
+function vizTab(view, keepInsp){
   if(RV.path) closeReview();          // saves first; never two views stacked
   setTabs(".vtab", view);
   $("#vizview").style.display = view === "viz" ? "flex" : "none";
   $("#filesview").style.display = view === "files" ? "flex" : "none";
   if(view === "files") loadFs(fsPath);
   syncReviewBtn();
+  if(!keepInsp){ leaveHome(); setRight(true); inspMark(view === "viz" ? "output" : "files"); }
 }
 document.querySelectorAll(".vtab").forEach(v => v.onclick = () => vizTab(v.dataset.view));
 // Backspace in the explorer goes up a level, as in a file manager
@@ -4713,9 +5065,9 @@ async function loadFs(path){
     ${d.parent ? '<a id="fsup" role="button" tabindex="0" title="up one level (Backspace)">⬑ up</a> · ' : ''}
     <span style="font-family:var(--mono);overflow:hidden;text-overflow:ellipsis">${esc(short)}</span>
     <span style="margin-left:auto;display:flex;gap:5px">
-      <button class="copy" id="fsclaude" title="start a claude session in this folder">⌨ claude here</button>
-      <button class="copy" id="fsshell" title="open a shell in this folder">⌨ shell here</button>
-      <button class="copy" id="fswatch" title="viz panel watches this folder">👁 watch</button>
+      <button class="copy" id="fsclaude" title="start a claude session in this folder">Chat here</button>
+      <button class="copy" id="fsshell" title="open a shell in this folder">Shell here</button>
+      <button class="copy" id="fswatch" title="the Output tab watches this folder">Watch</button>
       <button class="copy" id="fscopy" title="copy folder path">copy</button>
     </span>`;
   if(d.parent) crumb.querySelector("#fsup").onclick = () => loadFs(d.parent);
@@ -4726,7 +5078,7 @@ async function loadFs(path){
     openTerm("claude", {cwd: d.path, label: "claude · " + baseName(d.path)});
   const watching = vizOverride() === d.path;
   const wbtn = crumb.querySelector("#fswatch");
-  if(watching){ wbtn.textContent = "👁 watching ✓"; wbtn.style.color = "var(--ok)"; }
+  if(watching){ wbtn.textContent = "Watching ✓"; wbtn.style.color = "var(--ok)"; }
   wbtn.onclick = () => {
     if(vizOverride() === d.path) localStorage.removeItem("cdl-vizdir");
     else localStorage.setItem("cdl-vizdir", d.path);
@@ -4738,7 +5090,7 @@ async function loadFs(path){
   for(const e of d.entries){
     const full = joinPath(d.path, e.name);
     const row = document.createElement("div"); row.className = "fsrow";
-    row.innerHTML = `<span aria-hidden="true">${e.dir ? "📁" : "📄"}</span>
+    row.innerHTML = `<span class="fico" aria-hidden="true">${e.dir ? ICON.folder : ICON.file}</span>
       <span class="fname" title="${esc(full)}">${esc(e.name)}</span>
       <button class="fact" data-a="copy" title="copy full path" aria-label="Copy the path of ${esc(e.name)}">copy</button>
       <button class="fact" data-a="cli" title="paste path into the terminal" aria-label="Paste the path of ${esc(e.name)} into the terminal">→ CLI</button>
@@ -4767,7 +5119,7 @@ async function loadFs(path){
   }
 }
 
-/* ---------- optional add-ons (🧩) ----------------------------------------
+/* ---------- optional add-ons ----------------------------------------
    The server says which add-ons from addons.json are installed; this pane
    offers the missing ones with tickboxes. Commands come from addons.json,
    are shown before anything runs, and run in a visible terminal tab.
@@ -4987,6 +5339,7 @@ async function runInstallRounds(){
 $("#adgo").onclick = () => { if(!AD.busy && AD.picked.size) runInstallRounds(); };
 // at launch: open when something is missing, unless silenced for this exact set
 loadAddons().then(() => {
+  if(state.layout === "home" && HOME) renderHome();     // the setup checklist counts them
   const miss = missingIds();
   if(miss && localStorage.getItem("cdl-addons-quiet") !== miss && lsGet("ember-simple") === "0") openAddons();
 });
@@ -5049,7 +5402,7 @@ function waitingToast(e){
         {kind: "warn", action: run ? {label: term ? "Go to terminal" : "Open", run} : undefined});
 }
 
-/* ---------- OS notifications (🔔, opt-in) ----------------------------------
+/* ---------- OS notifications (Alerts, opt-in) ----------------------------------
    While Ember is in the background: a session waiting for you, or Claude
    done with its turn. The macOS app has no web Notification API, so it
    posts to the native bridge (native/main.swift) instead. */
@@ -5131,7 +5484,7 @@ async function pollGuards(){
   GV.primed = true;
 }
 function guardToast(e){
-  const msg = `🛡 Blocked in ${sessionName(e.cwd)}: ${e.rule} (/${e.guard})`;
+  const msg = `Blocked in ${sessionName(e.cwd)}: ${e.rule} (/${e.guard})`;
   toast(msg, {kind: "warn", action: {label: "Guard log",
     run: () => { focusPane("cell-plan"); planTab("config"); }}});
   if(pageAway()) osNotify(msg, "Claude was told why and can take another route.");
@@ -5139,12 +5492,12 @@ function guardToast(e){
 function renderGuardLog(){
   const box = $("#guardlog"); if(!box) return;
   const rows = GV.list.slice().reverse();
-  box.innerHTML = `<div class="cfgsum"><span>🛡 Guard log</span>
+  box.innerHTML = `<div class="cfgsum"><span>Guard log</span>
     <span style="margin-left:auto">${rows.length ? `<b>${rows.length}</b> block${rows.length === 1 ? "" : "s"}` : ""}</span></div>`;
   if(!rows.length){
     box.insertAdjacentHTML("beforeend", GV.enabled
       ? '<div class="cfgnote">No blocks yet. Commands stopped by <code>/careful</code> and edits stopped by <code>/freeze</code> appear here.</div>'
-      : '<div class="cfgnote">Install <b>Session guards</b> in 🧩 so <code>/careful</code> and <code>/freeze</code> actually block, and each block shows up here.</div>');
+      : '<div class="cfgnote">Install <b>Session guards</b> from Add-ons so <code>/careful</code> and <code>/freeze</code> actually block, and each block shows up here.</div>');
     return;
   }
   for(const e of rows.slice(0, 50)){
@@ -5188,9 +5541,9 @@ function endCardHtml(s){
   }
   if(g && g.commits.length) h += `<div><b>${g.commits.length}</b> commit${g.commits.length === 1 ? "" : "s"}: ${esc(g.commits[0])}${g.commits.length > 1 ? " …" : ""}</div>`;
   if(pl) h += `<div>Plan <b>${pl.done}/${pl.total}</b>${pl.ticked > 0 ? ` · <b>+${pl.ticked}</b> ticked this session` : ""}</div>`;
-  h += `<div class="ecb"><button class="copy" data-act="log" title="append a pre-filled entry to session_logs/ in the project">＋ session log</button>
-      ${s.session_id ? '<button class="copy" data-act="open">open session</button>' : ""}
-      ${s.improve ? '<button class="copy" data-act="improve">🔎 retrospective</button>' : ""}</div>`;
+  h += `<div class="ecb"><button class="btn-primary" data-act="log" title="append a pre-filled entry to session_logs/ in the project">Add to session log</button>
+      ${s.session_id ? '<button class="btn-quiet" data-act="resume" title="continue this conversation in a new terminal">Resume</button><button class="btn-quiet" data-act="open">Open</button>' : ""}
+      ${s.improve ? '<button class="btn-quiet" data-act="improve" title="the end-of-session /improve report">Retrospective</button>' : ""}</div>`;
   return h;
 }
 async function showEndCard(id){
@@ -5217,15 +5570,17 @@ async function showEndCard(id){
     else if(a === "log"){
       try{
         const r = await api("/api/term/sessionlog", {id});
-        act.disabled = true; act.textContent = "✓ logged";
+        act.disabled = true; act.textContent = "Logged ✓";
         toast("Added to " + r.path.split(/[\\/]/).slice(-2).join("/"), {kind: "ok",
           action: {label: "Open", run: async () => { vizTab("files");
             await loadFs(r.path.replace(/[\\/][^\\/]+$/, "")); }}});
       }catch(e){ toast("Could not write the session log: " + e.message, {kind: "err"}); }
     }
-    else if(a === "open"){
+    else if(a === "open" || a === "resume"){
       const p = projectForCwd(state.projects, s.cwd);
-      if(p) openSession(p.slug, s.session_id);
+      if(!p) return;
+      if(a === "open") openSession(p.slug, s.session_id);
+      else openTerm("resume", {project: p.slug, session: s.session_id, label: "resume · " + (projName(p.slug) || s.session_id.slice(0, 8))});
     }
     else if(a === "improve"){
       vizTab("files");
@@ -5322,6 +5677,9 @@ const SIMPLE = () => document.body.classList.contains("simple");
 function setSimple(on){
   document.body.classList.toggle("simple", on);
   lsSet("ember-simple", on ? "1" : "0");
+  if(state.layout === "home") renderHome();
+  lsSet("ember-layout", on ? "workspace" : "panes");
+  if(state.layout !== "home") setLayout(on ? "workspace" : "panes");
   if(on && planView === "config") planTab("plan");     // its tab is hidden now
   renderWelcome();
   announce(on ? "Simple mode on" : "Simple mode off");
@@ -5341,7 +5699,7 @@ const GLOSS = {
   tool: ["Tool call", "An action Claude takes: reading a file, running a command, searching the web. Each one is a line in the conversation."],
   agent: ["Agent", "A helper Claude starts for a side task. It works on its own and reports back."],
   plan: ["Plan", "A checklist saved as .claude/plan.md in the project folder. Claude ticks it as it works; you can tick it too."],
-  viz: ["Viz", "Charts, reports and PDFs Claude makes open here by themselves. Click 💬 Comment to point at what should change."],
+  viz: ["Output", "Charts, reports and PDFs Claude makes open here by themselves. Click Comment to point at what should change."],
   claudemd: ["CLAUDE.md", "A note of standing instructions Claude reads at the start of every conversation, like custom instructions in the app."],
 };
 document.addEventListener("click", e => {
@@ -5363,12 +5721,12 @@ $("#glossclose").onclick = () => $("#gloss").close();
 $("#sbHelp").onclick = () => {
   if(document.getElementById("menu")) return closeMenu();
   openMenu($("#sbHelp"), m => {
-    menuItem(m, "🧭  Guided tour", "one minute: what each part of the screen is for", startTour);
-    menuItem(m, "🎓  Practice project", "ten minutes, hands on, with a small made-up dataset", startPractice);
-    menuItem(m, SIMPLE() ? "◻  Simple mode: turn off" : "◼  Simple mode: turn on",
+    menuItem(m, "Guided tour", "one minute: what each part of the screen is for", startTour);
+    menuItem(m, "Practice project", "ten minutes, hands on, with a small made-up dataset", startPractice);
+    menuItem(m, SIMPLE() ? "Simple mode: turn off" : "Simple mode: turn on",
              "plain words, labels on buttons, fewer expert panels", () => setSimple(!SIMPLE()));
-    menuItem(m, "📖  Glossary", "the words you will see in Ember", openGloss);
-    menuItem(m, "⌨  Keyboard shortcuts", "", openKeys);
+    menuItem(m, "Glossary", "the words you will see in Ember", openGloss);
+    menuItem(m, "Keyboard shortcuts", "", openKeys);
   }, "Help");
 };
 
@@ -5382,30 +5740,44 @@ async function renderWelcome(){
   const st = SETUP, steps = [];
   const pick = $("#main .welcome-start");
   if(pick) pick.hidden = !st.projects;
-  const step = (ok, text, sub, btn) => steps.push(`<div class="wstep${ok ? "" : " todo"}">
-      <span class="wico" aria-hidden="true">${ok ? "✅" : "◻"}</span>
-      <div class="wtxt">${text}${sub ? `<small>${sub}</small>` : ""}${!ok && btn ? btn : ""}</div></div>`);
-  step(st.claude, st.claude ? "Claude Code is installed" : "Install Claude Code",
-       st.claude ? "" : "Claude Code is Claude for the files on your computer. The official installer runs in a terminal you can watch.",
-       `<button class="copy go" data-w="install">Install Claude Code</button>`);
-  step(st.logged_in === true, st.logged_in === true ? "Signed in to Claude" : "Sign in with your Claude account",
-       st.logged_in === true ? "" : "The first time you start a chat, Claude Code asks a few setup questions and then for your sign-in. Enter accepts the defaults. Use the same account as the Claude app (a Pro or Max plan, or an API key).");
-  step(st.projects, st.projects ? "You have conversations: pick one in the sidebar" : "Start your first chat",
-       st.projects ? "" : "Pick a folder for Claude to work in. A new, empty folder is a safe start.",
-       `<button class="copy go" data-w="chat">＋ New chat with Claude</button>`);
+  steps.push(...setupSteps(st).map(stepHtml));
   const first = lsGet("ember-simple") === null;
-  box.innerHTML = (first ? `<div class="wstep todo"><span class="wico" aria-hidden="true">👋</span>
+  box.innerHTML = (first ? `<div class="wstep todo"><span class="wico" aria-hidden="true"></span>
       <div class="wtxt">Coming from the Claude app?<small>Simple mode uses plain words, labels the buttons
       and hides the expert panels. You can switch any time from <b>? Help</b> at the bottom right.</small>
       <div class="wchoice"><button class="copy go" data-w="simple">Use simple mode and show me around</button>
       <button class="copy" data-w="full">Show everything</button></div></div></div>` : "")
     + (first || SIMPLE() || !(st.claude && st.projects) ? steps.join("") : "")
-    + `<div class="wchoice"><button class="copy" data-w="practice">🎓 Practice project (10 min)</button>
-       <button class="copy" data-w="tour">🧭 Tour of the screen (1 min)</button>
-       <button class="copy" data-w="gloss">📖 Glossary</button></div>`;
+    + `<div class="wchoice"><button class="copy" data-w="practice">Practice project (10 min)</button>
+       <button class="copy" data-w="tour">Tour of the screen (1 min)</button>
+       <button class="copy" data-w="gloss">Glossary</button></div>`;
+  wireSetup(box);
+}
+/* The first-run checklist, one source for the welcome card and Home. The
+   fourth step is the add-ons Ember itself uses (live activity, limits…). */
+function setupSteps(st){
+  const app = AD.list.filter(a => a.used_by_app), missing = app.filter(a => !a.installed);
+  return [
+    {ok: st.claude, text: st.claude ? "Claude Code is installed" : "Install Claude Code",
+     sub: st.claude ? "" : "Claude Code is Claude for the files on your computer. The official installer runs in a terminal you can watch.",
+     btn: `<button class="copy go" data-w="install">Install Claude Code</button>`},
+    {ok: st.logged_in === true, text: st.logged_in === true ? "Signed in to Claude" : "Sign in with your Claude account",
+     sub: st.logged_in === true ? "" : "The first time you start a chat, Claude Code asks a few setup questions and then for your sign-in. Enter accepts the defaults. Use the same account as the Claude app (a Pro or Max plan, or an API key)."},
+    {ok: st.projects, text: st.projects ? "You have conversations: pick one in the sidebar" : "Start your first chat",
+     sub: st.projects ? "" : "Pick a folder for Claude to work in. A new, empty folder is a safe start.",
+     btn: `<button class="copy go" data-w="chat">＋ New chat with Claude</button>`},
+    {ok: !missing.length, text: missing.length ? "Add what Ember uses" : "Ember's add-ons are installed",
+     sub: missing.length ? missing.map(a => a.name).join(", ") + ": live activity and limits in Ember." : "",
+     btn: `<button class="copy go" data-w="addons">Open add-ons</button>`},
+  ];
+}
+const stepHtml = x => `<div class="wstep${x.ok ? "" : " todo"}">
+    <span class="wico" aria-hidden="true">${x.ok ? "✓" : "○"}</span>
+    <div class="wtxt">${x.text}${x.sub ? `<small>${esc(x.sub)}</small>` : ""}${!x.ok && x.btn ? x.btn : ""}</div></div>`;
+function wireSetup(box){
   box.querySelectorAll("[data-w]").forEach(b => b.onclick = () => ({
     install: installClaude, chat: () => pickClaudeFolder(b), practice: startPractice,
-    tour: startTour, gloss: openGloss,
+    tour: startTour, gloss: openGloss, addons: () => openAddons(),
     simple: () => { setSimple(true); startTour(); }, full: () => setSimple(false),
   })[b.dataset.w]());
 }
@@ -5433,7 +5805,7 @@ const TOUR = [
   ["#cell-plan", "Claude's to-do list",
    "For bigger tasks Claude writes a checklist here and ticks it as it works. You can tick boxes too."],
   ["#cell-viz", "Charts and reports",
-   "Ask Claude for a chart or a report and it opens here. 💬 Comment lets you point at what should change. The Files tab browses the folder."],
+   "Ask Claude for a chart or a report and it opens here. Comment lets you point at what should change. The Files tab browses the folder."],
   ["#cell-usage", "How much you have used",
    "Your Claude plan allows a certain amount of use every 5 hours and every week. This pane shows where you stand."],
   ["#sbHelp", "Help is always here",
@@ -5441,6 +5813,7 @@ const TOUR = [
 ];
 let tourAt = -1, tourBack = null;
 function startTour(){
+  leaveHome();
   if(maxedCell) toggleMax(maxedCell);
   setRight(true);
   closeMenu();
@@ -5472,9 +5845,12 @@ function startTour(){
 }
 const tourVisible = sel => { const n = $(sel), r = n && n.getBoundingClientRect();
                              return r && r.width > 40 && r.height > 16; };
+const TOUR_INSP = {"#cell-plan": "plan", "#cell-viz": "output", "#cell-usage": "usage"};
 function tourGo(dir){
   let i = tourAt + dir;
-  while(i >= 0 && i < TOUR.length && !tourVisible(TOUR[i][0])) i += dir;
+  const prep = k => { if(k >= 0 && k < TOUR.length && state.layout === "workspace" && TOUR_INSP[TOUR[k][0]])
+                        inspMark(TOUR_INSP[TOUR[k][0]]); return k; };
+  while(prep(i) >= 0 && i < TOUR.length && !tourVisible(TOUR[i][0])) i += dir;
   if(i < 0) return;
   if(i >= TOUR.length) return endTour();
   tourAt = i;
@@ -5518,7 +5894,7 @@ function endTour(){
    checklist in the Plan pane; the server ticks what it can see happen. */
 const PRACTICE = {timer: null, done: new Set()};
 const PRACTICE_LAB = {asked: "you asked Claude about the folder",
-                      chart: "a chart arrived in Viz", comment: "your comment is saved"};
+                      chart: "a chart arrived in Output", comment: "your comment is saved"};
 async function startPractice(){
   closeMenu();
   const go = await ask("Start the practice project?",
@@ -5551,6 +5927,205 @@ function watchPractice(){
   }, 4000);
 }
 
+/* ---------- layouts: Workspace (conversation + one inspector) or All panes,
+   and the Home start page ---------------------------------------------------- */
+function setLayout(l){
+  if(!LAYOUTS.includes(l)) l = "workspace";
+  state.layout = l;
+  for(const x of LAYOUTS) document.body.classList.toggle("lay-" + x, x === l);
+  if(l !== "home") lsSet("ember-layout", l);
+  else loadHome();
+  inspMark(INSP);
+  renderStatus();
+  fitActive();
+}
+function inspMark(name){
+  if(!(name in INSP_CELL)) name = "plan";
+  if(maxedCell && maxedCell !== INSP_CELL[name] && $("#" + maxedCell).closest("#colR")) toggleMax(maxedCell);
+  INSP = name;
+  lsSet("ember-insp", name);
+  document.querySelectorAll("#insptabs [data-insp]").forEach(t => {
+    const on = t.dataset.insp === name;
+    t.setAttribute("aria-selected", on);
+    t.tabIndex = on ? 0 : -1;
+  });
+  for(const id of new Set(Object.values(INSP_CELL))) $("#" + id).classList.toggle("insp", id === INSP_CELL[name]);
+  fitActive();
+}
+// a tab click runs the pane's own tab switch, which marks the inspector
+function inspTab(name){
+  setRight(true);
+  if(name === "plan" || name === "config") planTab(name);
+  else if(name === "output" || name === "files") vizTab(name === "output" ? "viz" : "files");
+  else inspMark(name);
+}
+document.querySelectorAll("#insptabs [data-insp]").forEach(t => t.onclick = () => inspTab(t.dataset.insp));
+$("#inspHide").onclick = () => setRight(false);
+$("#inspHide").title = `hide the inspector (${K("⌃0")}; ${K("⌃0")} again brings it back)`;
+$("#btnLayout").onclick = () => {
+  if(document.getElementById("menu")) return closeMenu();
+  openMenu($("#btnLayout"), m => {
+    for(const [l, name, title] of [["home", "Home", "where you left off, recent chats, setup"],
+                                   ["workspace", "Workspace", "the conversation, the terminal below, one inspector on the right"],
+                                   ["panes", "All panes", "every pane at once, in a resizable grid"]]){
+      const it = menuItem(m, (state.layout === l ? "✓ " : "\u2003") + name, title, () => setLayout(l));
+      it.setAttribute("role", "menuitemradio"); it.setAttribute("aria-checked", state.layout === l);
+    }
+    m.appendChild(Object.assign(document.createElement("div"), {className: "sep"}));
+    const right = !$("#workspace").classList.contains("noright"), term = !$("#colL").classList.contains("termhidden");
+    menuItem(m, (right ? "Hide" : "Show") + " the right side", K("⌃0"), () => setRight(!right));
+    menuItem(m, (term ? "Hide" : "Show") + " the terminal", "", () => showTerm(!term));
+  }, "Layout");
+};
+// leave Home for the work layout you last used
+function leaveHome(){ if(state.layout === "home") setLayout(savedLayout()); }
+
+/* ---------- Home (from GET /api/home) ---------------------------------------
+   Continue where you left off, start something new, recent chats; on the
+   right the setup checklist (until done), usage in a sentence, latest outputs. */
+let HOME = null;
+async function loadHome(){
+  const ov = vizOverride();
+  try{ HOME = await api("/api/home" + (ov ? "?dir=" + encodeURIComponent(ov) : "")); }catch(e){ if(!HOME) return; }
+  if(!SETUP) try{ SETUP = await api("/api/setup"); }catch(e){}
+  if(state.layout === "home") renderHome();
+}
+const agoText = t => { const m = (Date.now() / 1000 - t) / 60;
+  return m < 1 ? "just now" : m < 60 ? Math.round(m) + " min ago" : m < 48 * 60 ? Math.round(m / 60) + " h ago"
+       : new Date(t * 1000).toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
+function renderHome(){
+  const H = HOME || {recent: [], viz: []}, c = H.continue, main = $("#homemain"), side = $("#homeside");
+  const projs = (state.projects || []).filter(p => isAbsPath(p.path));
+  let h = lsGet("ember-simple") !== null ? "" : `<section class="hcard"><div class="label">Coming from the Claude app?</div>
+    <p style="font-size:13px;color:var(--dim)">Simple mode uses plain words, labels the buttons and hides the expert
+      panels. You can switch any time from <b>Settings</b> or <b>? Help</b>.</p>
+    <div class="hact"><button class="btn-primary" data-w="simple">Use simple mode and show me around</button>
+      <button class="btn" data-w="full">Show everything</button></div></section>`;
+  if(c){
+    const name = projName(c.slug) || baseName(c.path);
+    h += `<section class="hcard" aria-labelledby="hcont"><div class="label" id="hcont">Continue where you left off</div>
+      <h2>${esc(cleanTitle(c.title) || "(untitled)")}</h2>
+      <div class="hmeta">${c.live ? '<i class="livedot"></i><span style="color:var(--ok)">Live now</span>' : "Last active " + agoText(c.mtime)}
+        · ${esc(name)}${c.api_error ? ` · <span class="apierr">${esc(c.api_error.replace(/_/g, " "))}</span>` : ""}</div>
+      ${c.last_assistant ? `<div class="hquote" title="the last thing Claude said">${esc(c.last_assistant)}${c.last_assistant.length >= 200 ? "…" : ""}</div>` : ""}
+      ${c.plan ? `<div class="hprog"><span>Plan</span><div class="planprog"><i style="width:${Math.round(100 * c.plan.done / c.plan.total)}%"></i></div>
+        <span class="num">${c.plan.done} of ${c.plan.total} done</span></div>` : ""}
+      <div class="hact"><button class="btn-primary" data-act="open">Open the conversation</button>
+        <button class="btn" data-act="steps">See what Claude did</button></div></section>`;
+  }
+  h += `<section class="hcard" aria-labelledby="hnew"><div class="label" id="hnew">Start something new</div>
+    <p style="color:var(--dim);font-size:13px">${c ? "Pick the folder Claude should work in." : "No chats yet. Pick a folder for Claude to work in: it can read, run and change the files there, and asks first."}</p>
+    <div class="hact"><select id="hfolder" aria-label="Folder for the new chat">
+        <option value="">Home folder (~)</option>
+        ${projs.map((p, i) => `<option value="${esc(p.slug)}"${i === 0 && c ? " selected" : ""}>${esc(baseName(p.path))}</option>`).join("")}
+      </select><button class="btn-primary" data-act="new">＋ New chat</button>
+      <button class="btn-quiet" data-act="browse">Browse…</button></div></section>`;
+  h += `<section class="hsection" aria-labelledby="hrec"><div class="label" id="hrec">Recent chats</div>`
+    + (H.recent.length ? `<table class="htable"><thead><tr><th class="label">Chat</th><th class="label">Project</th>
+        <th class="label">When</th><th class="label">Turns</th></tr></thead><tbody>`
+      + H.recent.map(r => `<tr tabindex="0" role="button" data-slug="${esc(r.slug)}" data-id="${esc(r.id)}">
+          <td>${esc(cleanTitle(r.title) || "(untitled)")}</td><td>${esc(projName(r.slug) || baseName(r.path))}</td>
+          <td>${r.live ? '<span style="color:var(--ok)">live</span>' : agoText(r.mtime)}</td>
+          <td class="num">${turnsLabel(r).replace(/ turns?$/, "")}${r.api_error ? ` <span class="apierr" title="${esc(r.api_error)}">!</span>` : ""}</td></tr>`).join("")
+      + `</tbody></table>`
+      : `<div class="hempty">Your chats will be listed here. Start one above, or try the
+          <a data-act="practice" role="button" tabindex="0">practice project</a> (10 minutes).</div>`) + `</section>`;
+  main.innerHTML = h;
+  wireSetup(main);
+
+  // right column
+  const steps = SETUP ? setupSteps(SETUP) : [], done = steps.filter(x => x.ok).length;
+  $("#hsetupN").textContent = steps.length ? `${done} of ${steps.length}` : "";
+  let r = "";
+  if(steps.length && done < steps.length)
+    r += `<section class="hcard" id="hsetup" aria-labelledby="hset"><div class="label" id="hset">Finish setting up · ${done} of ${steps.length}</div>
+      ${steps.map(stepHtml).join("")}</section>`;
+  const u = usageNow(lastUsage), w = lastUsage && lastUsage.official && lastUsage.official.seven_day;
+  r += `<section class="hcard" aria-labelledby="huse"><div class="label" id="huse">Usage</div>
+    <p style="font-size:13px">${u ? `You have used <b>${Math.round(u.pct)}%</b> ${u.of}${u.reset ? `; it ${u.reset}` : ""}.`
+        : "No 5-hour block is running: one starts with your next message."}
+      ${w && w.used_percentage != null ? ` This week: <b>${Math.round(w.used_percentage)}%</b> of your 7-day limit.` : ""}</p>
+    <button class="btn-quiet" data-act="usage" style="padding-left:0">Details</button></section>`;
+  r += `<section class="hcard" aria-labelledby="hout"><div class="label" id="hout">Latest outputs</div>`
+    + (H.viz.length ? `<div class="hthumbs">${H.viz.map((f, i) => {
+        const img = /^image\//.test(f.kind), url = "/api/fs/file?path=" + encodeURIComponent(joinPath(H.viz_dir, f.name)) + "&t=" + f.mtime;
+        return `<button class="hthumb" data-viz="${i}" title="${esc(f.name)}">${img ? `<img src="${esc(url)}" alt="" loading="lazy">`
+          : `<b>${esc((f.name.split(".").pop() || "file"))}</b>`}<span>${esc(f.name)}</span></button>`; }).join("")}</div>`
+      : `<div class="hempty">Charts and reports Claude makes appear here. In a chat, ask for one: “make a chart of …”.</div>`)
+    + `</section>`;
+  side.innerHTML = r;
+  if(H.viz.some(f => /^image\//.test(f.kind))) ensureCookie();
+  wireSetup(side);
+}
+async function openFromHome(slug, id){
+  if(state.openProject !== slug) await toggleProject(slug);
+  await openSession(slug, id);
+}
+$("#homemain").onclick = async ev => {
+  const row = ev.target.closest("tr[data-id]");
+  if(row) return openFromHome(row.dataset.slug, row.dataset.id);
+  const a = ev.target.closest("[data-act]"), c = HOME && HOME.continue;
+  if(!a) return;
+  const act = a.dataset.act;
+  if(act === "open" && c) openFromHome(c.slug, c.id);
+  else if(act === "steps" && c){
+    await openFromHome(c.slug, c.id);
+    const V = VIEW, k = V ? V.turns.length - 1 : -1;
+    if(k < 0) return;
+    jumpTo(V, V.turns[k].start, false);
+    const card = V.turnEls[k] && V.turnEls[k].querySelector(".tcard.shut");
+    if(card) card.querySelector(".thead").click();
+  }
+  else if(act === "new"){
+    const slug = $("#hfolder").value, p = state.projects.find(x => x.slug === slug);
+    openTerm("claude", p ? {project: slug, label: "claude · " + baseName(p.path)} : {label: "claude · ~"});
+  }
+  else if(act === "browse"){ setRight(true); focusPane("cell-viz"); vizTab("files"); }
+  else if(act === "practice") startPractice();
+};
+$("#homeside").onclick = ev => {
+  const t = ev.target.closest("[data-viz], [data-act]");
+  if(!t) return;
+  if(t.dataset.act === "usage") return focusPane("cell-usage");
+  const f = HOME && HOME.viz[+t.dataset.viz];
+  if(!f) return;
+  setRight(true); focusPane("cell-viz"); vizTab("viz");
+  showViz(f, HOME.viz_dir);
+};
+$("#homenav").onclick = ev => {
+  const b = ev.target.closest("[data-h]");
+  if(!b) return;
+  const go = {
+    home: () => $("#homemain").scrollTo(0, 0),
+    chats: () => { leaveHome(); $("#sbProj").click(); },
+    plans: () => { focusPane("cell-plan"); planTab("plan"); },
+    outputs: () => { focusPane("cell-viz"); vizTab("viz"); },
+    usage: () => focusPane("cell-usage"),
+    setup: () => { const c = $("#hsetup");
+      if(c){ c.scrollIntoView({block: "start"}); const x = c.querySelector("button"); if(x) x.focus(); }
+      else toast("Setup is complete.", {kind: "ok"}); },
+    settings: () => {
+      if(document.getElementById("menu")) return closeMenu();
+      openMenu(b, m => {
+        menuItem(m, "Theme…", "", () => pickTheme(b));
+        menuItem(m, "Add-ons", "", () => openAddons());
+        menuItem(m, NOTIFY.on ? "Alerts: turn off" : "Alerts: turn on", "", () => $("#btnNotify").click());
+        menuItem(m, SIMPLE() ? "Simple mode: turn off" : "Simple mode: turn on", "", () => setSimple(!SIMPLE()));
+        menuItem(m, "Keyboard shortcuts", "", openKeys);
+        menuItem(m, "Guided tour", "", startTour);
+        menuItem(m, "Glossary", "", openGloss);
+      }, "Settings");
+    },
+  }[b.dataset.h];
+  go();
+};
+$("#tnHome").onclick = () => setLayout("home");
+poll(() => { if(state.layout === "home") loadHome(); }, 30000);
+
+if(lsGet("ember-termhidden") === "1") showTerm(false);
+// a deep link opens its conversation; otherwise Home, unless a session is live (startup below)
+setLayout(/[#&]p=/.test(location.hash) ? state.layout : "home");
+
 pollAway(pollEvents, 3000);
 pollEvents();
 refreshUsage(); refreshViz(); refreshPlan(true);
@@ -5561,10 +6136,15 @@ renderWelcome().then(() => {
     api("/api/practice", {}).then(r => { PRACTICE.done = new Set(r.done); watchPractice(); }).catch(() => {});
   }
 });
-loadProjects().then(restoreFromHash).catch(e => {
+loadProjects().then(async () => {
+  if(/[#&]p=/.test(location.hash)) return restoreFromHash();
+  await loadHome();
+  const c = HOME && HOME.continue;
+  if(c && c.live && state.layout === "home") openFromHome(c.slug, c.id);
+}).catch(e => {
   const isAuth = /token/i.test(e.message);
   $("#tree").innerHTML = `<div class="placeholder" style="padding:30px 16px;text-align:left">
-    ${isAuth ? `🔒 <b>This tab has no access token.</b><br><br>${reloginHint()}`
+    ${isAuth ? `<b>This tab has no access token.</b><br><br>${reloginHint()}`
       : "error: " + esc(e.message)}</div>`;
 });
 </script>

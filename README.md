@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/PierreBeaucoral/ember/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/PierreBeaucoral/ember/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Version 1.2.2" src="https://img.shields.io/badge/version-1.2.2-dd876d">
+  <img alt="Version 1.4.0" src="https://img.shields.io/badge/version-1.4.0-dd876d">
   <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-3776ab?logo=python&logoColor=white">
   <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-2ea44f">
   <img alt="macOS | Linux | Windows" src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey">
@@ -43,11 +43,23 @@ git clone https://github.com/PierreBeaucoral/ember.git && cd ember && python3 se
 ```
 
 <p align="center">
-  <img src="docs/assets/layout.svg" alt="Ember layout: sidebar, session timeline above the terminal, token use, plan and viz panes on the right" width="100%">
+  <img src="docs/assets/layout.svg" alt="Ember's Workspace layout: top bar with search and usage; sidebar of projects and chats; the conversation with folded turn summaries above a docked terminal; an inspector on the right with Plan, Usage, Output, Files and Config tabs, showing the plan checklist" width="100%">
 </p>
 
-Every pane can be **maximized (⛶)** or **resized by dragging** the splitters, and the layout
-is saved between sessions. The coral accent marks navigation, focus and activity; diff,
+**Layouts.** A top bar sits on every screen: the Ember logo (back to Home), where you are
+(project / conversation), a search field that opens the ⌘K palette, a compact 5-hour usage
+meter, the **Layout** menu and **Resume** for the open conversation. The Layout menu has three:
+
+- **Home**, where Ember opens unless a conversation is live: continue where you left off
+  (Claude's last words, plan progress), start a new chat in a folder, recent chats across
+  projects, and on the right the setup checklist, your usage in one sentence and the latest outputs
+- **Workspace**, the default once a chat is open: the sidebar, the conversation with the
+  terminal docked below it (**Hide** folds it), and an inspector with **Plan · Usage · Output ·
+  Files · Config** tabs. **Ctrl+0** hides and shows the inspector
+- **All panes**: every pane at once in a grid, as in RStudio, **resized by dragging** the splitters
+
+Any pane can be **maximized (⛶)**, and the layout is saved between sessions. Simple mode
+picks Workspace, full mode All panes. The coral accent marks navigation, focus and activity; diff,
 warning and success colors keep their own meanings. **Ember Dark** and **Ember Light**
 join the eight classic editor themes.
 
@@ -73,11 +85,15 @@ into any session in an embedded terminal.
 **Session inspection**
 - Every project and session under `~/.claude/projects/`, with real working-directory
   paths (decoded from the transcripts, not the lossy folder slugs)
-- **One card per turn**: each prompt is followed by a card that sums up what Claude did
-  (models, thinking / tool calls / messages / agents, errors, context size, wall time).
-  Inside, every step is **one line**: thinking with its first line, each tool call with its
-  argument, an estimated token count (`~1.2k`), a status dot and **how long the tool took**;
-  click a line to open it. The final answer stays readable in full under the card
+- **One line per turn**: the prompt and the answer read in full, and the steps between
+  fold into one summary line ("Read server.py, edited 2 files, ran 3 commands · 12 steps ·
+  3m 12s"). Open it and every step is **one aligned row**: thinking with its first line, each
+  tool call with its argument, an estimated token count (`~1.2k`), a status dot and **how
+  long the tool took**; click a row to open it
+- **A quiet session header**: project and title, **Export**, **Context** and **Resume in
+  terminal**, then one line of meta (live, model, output, peak context, cache read, cache
+  timer). **Everything / Prompts and answers** sets how much of each turn shows, and the
+  **View** menu toggles thinking, tool calls, system messages and agents
 - **Skills, slash commands, hooks and API errors are named, not dumped**: a skill's
   injected instructions become one `Skill /name ~11k` line instead of pages of text,
   `/improve config audit` shows as a command, failed hooks (`SessionStart · exit 127`)
@@ -94,7 +110,7 @@ into any session in an embedded terminal.
   own steps as lines, fetched on demand), so you keep your place in the parent session
 - **What is in the context window**: a *Context +N* badge on each turn lists what that
   turn added (CLAUDE.md and rules files, the skill list, MCP instructions, @-files, tool
-  output, thinking), and the **◧ context** panel shows the window as of the last request,
+  output, thinking), and the **Context** panel shows the window as of the last request,
   by source, with ~token estimates, links to the turn, and how much of the real context
   the transcript does not account for (tool schemas, framing)
 - **Prompt cache timer**: the session header counts down how long the prompt cache stays
@@ -104,10 +120,12 @@ into any session in an embedded terminal.
 - **Context-window chart**: one bar per API request, stacked into cache read, cache
   write and uncached input, with automatic **compaction detection** (red bars where the
   context dropped sharply). **Click a bar to jump to that turn** in the timeline
-- Token totals per session, deduplicated by request ID, plus a tool-call histogram whose
-  chips are clickable: each click jumps to the next call of that tool. **errors / agents /
-  skills** chips (and the keys **e**, **a**, **s**; **j**/**k** for turns) jump the same way,
-  and each turn has a **link** you can paste to reopen the session at that turn
+- Token totals per session, deduplicated by request ID. **Jump to** chips for errors,
+  agents and skills (and the keys **e**, **a**, **s**; **j**/**k** for turns) jump to the next
+  one; the per-tool counts sit in the Context panel, where each chip jumps to the next call
+  of that tool. Each turn has a **link** you can paste to reopen the session at that turn
+- The sidebar shows each project's folder name, a live dot and its chat count, and each
+  chat as *live* or its date with its turn count
 - Sessions that ended on an **API error** (rate limit, expired login) say so in the sidebar
 - **Subagent transcripts** open in the same viewer; agents not launched from the
   timeline (teammates, older layouts) get a header link named by agent type
@@ -125,6 +143,8 @@ into any session in an embedded terminal.
 - Big transcripts (20 MB+, thousands of entries) load lazily and stay responsive
 
 **Token usage**
+- The **Usage** pane leads with one sentence ("11% of your 5-hour limit") over its bar and
+  reset time; the top bar carries a compact copy of that meter
 - Current 5-hour block with reset countdown, output tokens today and over 7 days,
   an hourly sparkline, and a by-model breakdown
 - **History**: a 30 / 90 / 180-day calendar heatmap of output tokens per day, with the
@@ -156,17 +176,20 @@ into any session in an embedded terminal.
   `CLAUDE_DEVTOOLS_URL`, so a session can tell it's running inside the dashboard
 
 **Keyboard and navigation**
-- **⌘K command palette** (Ctrl+K off macOS): actions, `@` sessions, `#` full-text search,
-  `/` files, `>` commands. ⌘P jumps to a session; `?` lists every shortcut
+- **⌘K command palette** (Ctrl+K off macOS; also the search field in the top bar): opened
+  empty, it suggests the next move (Resume, New chat, Jump to the next error, Go to Home),
+  then your recent chats across projects, then everything else. `@` sessions, `#` full-text
+  search, `/` files, `>` commands. ⌘P jumps to a session; `?` lists every shortcut
 - Everything is reachable without a mouse: the project tree (arrow keys), tool and
   thinking blocks, plan tasks, tabs, menus and the splitters (arrow keys resize them);
-  Ctrl+1–5 focus a pane, ⌘⇧M maximizes it
-- A **status bar** shows the connection, project, terminal, plan progress and 5-hour
-  usage at a glance; each segment jumps to its pane
+  Ctrl+1–5 focus a pane, ⌘⇧M maximizes it, Ctrl+0 hides or shows the right side
+- A **status bar** shows the connection, project and terminal at a glance; each segment
+  jumps to its pane
 - All ten themes meet WCAG AA contrast; notifications are announced to screen readers
 
 **Plan pane**
-- A third right-hand quadrant showing the project's plan as a **live checklist**.
+- The inspector's **Plan** tab (a right-hand quadrant in All panes) shows the project's
+  plan as a **live checklist**.
   It reads the first plan file it finds: `.claude/plan.md`, then the newest
   `quality_reports/plans/*.md`, then `PLAN.md` / `TODO.md` / `TASKS.md` / `ROADMAP.md`
 - **Ticking a box rewrites the marker in the file** — so the plan is a shared artefact:
@@ -177,7 +200,7 @@ into any session in an embedded terminal.
 - A file picker appears when a project has several plans; **＋ create** scaffolds
   `.claude/plan.md` when it has none
 
-**Config inventory (⚙ Config tab)**
+**Config inventory (Config tab)**
 - What is actually installed in `~/.claude` — agents, skills, commands, rules, hooks,
   plugins, MCP servers — with the project's own `.claude/` alongside it when it has one
 - Splits **resident** from **on demand**: `CLAUDE.md` and `rules/` (subfolders included,
@@ -202,7 +225,7 @@ into any session in an embedded terminal.
   propose rather than apply, so it never edits your `CLAUDE.md` behind your back
 - Rate-limited to one run per project per 3 hours, skipped for sessions under 20 KB, and
   guarded against recursing into its own session
-- The newest report opens from the **🔎** button in the plan pane. Turn the whole thing
+- The newest report opens from **Retrospective** in the Plan pane header. Turn the whole thing
   off with `CDL_IMPROVE=0` in the environment
 - Needs the command installed once:
   `mkdir -p ~/.claude/commands && curl -o ~/.claude/commands/improve.md https://raw.githubusercontent.com/TerenceBristol/claude-improve/main/improve.md`
@@ -213,13 +236,15 @@ into any session in an embedded terminal.
   Claude Code itself reports (with *Live limits*), every file changed since the tab
   opened (commits made in the session plus uncommitted work, from git), and how many
   plan items were ticked
-- **＋ session log** appends a pre-filled entry to `session_logs/YYYY-MM-DD.md` in the
-  project: changes table, usage, plan progress, and the plan's open items as next steps.
-  Decisions and LEARN entries are left blank for you, since Ember only writes down facts
-- The **🔎 retrospective** button appears once the `/improve` report lands
+- **Add to session log**, its one main button, appends a pre-filled entry to
+  `session_logs/YYYY-MM-DD.md` in the project: changes table, usage, plan progress, and the
+  plan's open items as next steps. Decisions and LEARN entries are left blank for you,
+  since Ember only writes down facts
+- **Resume** and **Open** sit beside it as quiet links, and **Retrospective** once the
+  `/improve` report lands
 
-**Notifications (🔔)**
-- Off by default. Turned on, Ember tells you through your OS when a session **waits for
+**Notifications (Alerts)**
+- Off by default. Turned on with **Alerts** at the bottom of the sidebar, Ember tells you through your OS when a session **waits for
   your permission** or **Claude finishes its turn**, but only while Ember is in the
   background, and at most once per session every 15 seconds
 - Works in the browser (it asks for permission once) and in the macOS app (native
@@ -232,11 +257,11 @@ into any session in an embedded terminal.
   (`rm -rf`, `git push --force`, `git reset --hard`, `git clean -f`, `DROP TABLE`, …) and
   `/freeze paper/` blocks edits outside the folders you name. Claude is told why and
   can take another route
-- Each block shows as a toast and in **🛡 Guard log** at the top of the ⚙ Config tab:
+- Each block shows as a toast and in **Guard log** at the top of the Config tab:
   guard, rule, tool, project, time. Only that metadata is kept, **never the command**
 
-**Share a session (⇩ export)**
-- **⇩ export** in the session header saves one self-contained HTML file to your
+**Share a session (Export)**
+- **Export** in the session header saves one self-contained HTML file to your
   Downloads folder: the timeline as Ember renders it, in your current theme, with no
   scripts. Tick what goes in: thinking blocks, tool inputs and results,
   system messages
@@ -244,9 +269,9 @@ into any session in an embedded terminal.
   paths with `~/…` and your user name with `user`, including in `ls -l` output.
   Tool results can still contain file contents, so read the file before you send it
 
-**Viz inbox and file explorer**
-- A watched folder: any `.html`, `.png`, `.svg`, `.md`, `.pdf`, `.csv` written there
-  appears within 5 seconds and renders automatically. Tell a running Claude session
+**Output pane and file explorer**
+- The **Output** pane (formerly Viz) shows a watched folder: any `.html`, `.png`, `.svg`,
+  `.md`, `.pdf`, `.csv` written there appears within 5 seconds and renders automatically. Tell a running Claude session
   *"write the chart to $CLAUDE_DEVTOOLS_VIZ_DIR"* and watch it appear.
 - Interrupted folder scans are retried once, with one scan in flight per page.
   Persistent failures show a warning while keeping the last preview visible; the
@@ -257,7 +282,7 @@ into any session in an embedded terminal.
   this folder** silences the prompt for that project
 - Images preview scaled to fit the pane (click to expand them full-size)
 - A Files pane that follows the selected project, previews files, copies paths, opens a
-  shell in any folder, or points the viz watcher at it
+  shell in any folder, or points the Output watcher at it
 - It also follows the **active terminal tab**: switch between two Claude sessions and
   the explorer jumps to that session's project root — or back to wherever you had
   browsed to in it
@@ -265,10 +290,10 @@ into any session in an embedded terminal.
   which is where a knowledge graph or a wide figure is actually usable
 
 **Figure and PDF comments** (after [exhibit-review](https://github.com/paulgp/exhibit-review))
-- On any image **or PDF**, in the Viz pane **or the Files pane**, **💬 Comment** opens it
+- On any image **or PDF**, in the Output pane **or the Files pane**, **Comment** opens it
   full-size: click a spot or drag a box, then write what should change. Marks are
   numbered, and each comment is *open*, *resolved* or *wontfix*. So any figure or
-  compiled paper in the repo can be marked up, not only what lands in the viz folder
+  compiled paper in the repo can be marked up, not only what lands in the Output folder
 - **PDFs** open page by page (‹ ›), drawn by the bundled pdf.js, so you point at a spot on
   page 4 exactly as on a PNG. Each comment remembers its page; the list shows `p.4`, and
   picking a comment from another page turns to it
@@ -283,16 +308,18 @@ into any session in an embedded terminal.
   example one Claude just wrote)
 
 **Themes**
-- **◐** in the sidebar switches the whole app, terminal included: Ember Dark (default),
-  Ember Light, GitHub Dark / Light, Solarized Dark / Light, Dracula, Monokai, Tomorrow Night, Cobalt — the
-  editor themes RStudio users know. The choice is remembered per browser
+- **Theme** at the bottom of the sidebar switches the whole app, terminal included: Ember
+  Dark (default), Ember Light, GitHub Dark and GitHub Light lead the menu; Solarized Dark /
+  Light, Dracula, Monokai, Tomorrow Night and Cobalt — the editor themes RStudio users
+  know — are under **More themes**. The choice is remembered per browser
+- The chrome uses words, not emoji: Add-ons, Theme, Alerts, Quit, Export, Context
 - Claude Code picks its own colours: with a light theme here, run `/theme light` there
 
 ## Optional add-ons
 
 The dashboard runs on its own, but two features use Claude Code add-ons:
-**graphify** (knowledge graphs in the Viz pane) and **/improve** (the end-of-session
-retrospective). The **🧩** button opens a pane that shows which add-ons from
+**graphify** (knowledge graphs in the Output pane) and **/improve** (the end-of-session
+retrospective). **Add-ons**, at the bottom of the sidebar, opens a pane that shows which add-ons from
 [`addons.json`](addons.json) are installed, with a tickbox for each missing one.
 It also opens by itself at launch while something is missing; tick
 **Don't show at launch** to stop that until the list of missing add-ons changes.
@@ -373,8 +400,8 @@ no Python or anything else to install. Each app opens Ember in its own window.
   from source (`Ember.cmd`, the `install.ps1` shortcuts, `python server.py`), Ember opens
   in a browser window: Edge or Chrome in app mode, else your default browser
 - Keep the app where you first open it: the Live limits, Live activity and Session
-  guards add-ons point Claude Code at it. After moving it, tick them again in 🧩
-- The apps keep the Viz inbox in Ember's data folder (`~/Library/Application
+  guards add-ons point Claude Code at it. After moving it, tick them again in Add-ons
+- The apps keep the Output folder in Ember's data folder (`~/Library/Application
   Support/claude-devtools/viz` on macOS, `%APPDATA%\claude-devtools\viz`,
   `~/.config/claude-devtools/viz`); sessions find it through `$CLAUDE_DEVTOOLS_VIZ_DIR`
 
@@ -455,7 +482,7 @@ On macOS, use the newly built `Ember.app` in place of `Claude DevTools.app`; the
 does not remove your old app. Windows installation replaces this checkout's old
 shortcuts; Linux updates the existing desktop entry.
 
-Saved themes are preserved. Choose **◐ → Ember Dark** or **Ember Light** to adopt the
+Saved themes are preserved. Choose **Theme → Ember Dark** or **Ember Light** to adopt the
 new palette. Existing data directories, authentication, browser preferences and
 `CLAUDE_DEVTOOLS_*` environment variables keep their original identifiers for
 compatibility; no session migration is needed.
@@ -474,15 +501,17 @@ fall back to `claude-devtools-lite/`.
 
 If you know Claude from the app and want it to work on real files, Ember walks you in:
 
-- **A setup checklist at launch**: is Claude Code installed (one-click official
-  installer, run in a terminal you can watch), are you signed in, have you started a chat.
+- **A setup checklist on Home** (*Finish setting up*, until it is done): is Claude Code
+  installed (one-click official installer, run in a terminal you can watch), are you
+  signed in, have you started a chat, are the add-ons Ember uses installed.
 - **Simple mode**: plain words ("New chat with Claude", "Continue this conversation"),
-  labels on the icon buttons, expert panels hidden, and a **?** next to every term
-  (tokens, 5-hour block, thinking, tool calls…) with a one-sentence explanation.
-  Offered at first launch; switch any time from **? Help** in the status bar.
+  labelled buttons, the Workspace layout, expert panels hidden, and a **?** next to every
+  term (tokens, 5-hour block, thinking, tool calls…) with a one-sentence explanation.
+  Offered at first launch; switch any time from **Settings** on Home or **? Help** in the
+  status bar.
 - **A one-minute guided tour** of the screen.
 - **A ten-minute practice project**: `~/Ember-practice` with a small made-up dataset and a
-  six-step checklist in the Plan pane (ask Claude about the folder, get a chart, comment
+  six-step checklist in the Plan tab (ask Claude about the folder, get a chart, comment
   on it, read what Claude did, check your usage). Steps tick themselves as Ember sees them
   happen. It uses a little of your Claude usage, like any chat.
 
@@ -493,25 +522,28 @@ All of it lives under **? Help** (bottom right) and in the ⌘K palette.
 | Action | How |
 |---|---|
 | Get help as a beginner | **? Help** in the status bar: tour, practice project, simple mode, glossary |
+| Go back to the start page | The Ember logo in the top bar opens **Home** |
+| Switch layout | **Layout** in the top bar: Home, Workspace or All panes |
+| Hide or show the inspector | **Ctrl+0**, or **Hide** in its tab row |
 | Browse a project | Click it in the sidebar; sessions expand underneath |
-| Inspect a session | Click a session — timeline, chart, and token totals load |
-| Hide noise | Toggle **thinking** / **tool calls** / **system** above the timeline |
-| Filter the sidebar | Type in the search box — the tree narrows as you type |
-| Search everything | Type in the search box, press Enter, click a result to jump to it |
-| Open the CLI in a project | Hover a project → **⌨** |
-| Start a session anywhere | **+ claude** → pick a project, `~`, or **browse…** for any folder |
-| Resume a session | Open it → **⌨ resume in CLI** |
+| Inspect a session | Click a session — the conversation, context chart and token totals load |
+| Hide noise | **Prompts and answers** above the conversation; **View** toggles each kind of step |
+| Filter the sidebar | Type in the **Filter projects** box — the tree narrows as you type |
+| Search everything | Type in the filter box, press Enter, click a result to jump to it |
+| Open the CLI in a project | Hover a project → **+ chat** |
+| Start a session anywhere | **＋ New chat** at the top of the sidebar → pick a project, `~`, or browse for any folder |
+| Resume a session | Open it → **Resume in terminal** (or **Resume** in the top bar) |
 | Show a figure from a session | Have it write into `$CLAUDE_DEVTOOLS_VIZ_DIR` |
-| Comment on a figure | Show it in the Viz pane → **💬 Comment** → click or drag, type, **Send to Claude** |
-| Change the theme | **◐** in the sidebar |
-| Tick off a plan step | Click it in the **PLAN** pane — the markdown file is updated |
+| Comment on a figure | Show it in the **Output** tab → **Comment** → click or drag, type, **Send to Claude** |
+| Change the theme | **Theme** at the bottom of the sidebar |
+| Tick off a plan step | Click it in the **Plan** tab — the markdown file is updated |
 | Point the plan pane elsewhere | Use its file picker, or **＋ create `.claude/plan.md`** |
-| Read the last retrospective | **🔎** in the PLAN pane header |
-| See what's loaded into every turn | **⚙ Config** tab in the PLAN pane |
+| Read the last retrospective | **Retrospective** in the Plan header |
+| See what's loaded into every turn | The **Config** tab |
 | Expand a preview | Click the preview itself (Esc restores) |
 | Maximize a pane | **⛶** in its header (click again to restore) |
 | Resize panes | Drag the splitters; sizes persist |
-| Quit | **⏻** in the sidebar (or ⌘Q in the macOS app) |
+| Quit | **Quit** at the bottom of the sidebar (or ⌘Q in the macOS app) |
 | Use the browser instead of the app window | ⌘K → **Desktop app: open the browser at launch** (or **Open Ember in your browser** once) |
 | Check for a new version | ⌘K → **Check for updates** |
 
@@ -522,7 +554,7 @@ toast appears when a background session finishes something.
 
 Sessions started from Ember's terminal already know about it: Ember passes the block
 below with `--append-system-prompt`. Add it to your `~/.claude/CLAUDE.md` only if you
-also want sessions started **outside** Ember to use the Viz inbox and plan file; once
+also want sessions started **outside** Ember to use the Output folder and plan file; once
 your CLAUDE.md mentions `CLAUDE_DEVTOOLS_UI`, Ember stops appending its own copy, so
 you never pay for it twice.
 
@@ -532,10 +564,10 @@ you never pay for it twice.
 When `CLAUDE_DEVTOOLS_UI=1` is set, this session runs inside the Ember
 dashboard. To show the user a visual output (figure, chart, HTML report), also write a
 self-contained file into `$CLAUDE_DEVTOOLS_VIZ_DIR` — it renders automatically in the
-Viz pane. Prefer inline-only `.html`, `.png`, or `.svg`, with descriptive filenames.
+Output pane. Prefer inline-only `.html`, `.png`, or `.svg`, with descriptive filenames.
 
 Keep the working plan in `.claude/plan.md` as markdown checkboxes (`- [ ] step`). The
-dashboard's PLAN pane renders it and writes ticks back into it, so re-read it before
+dashboard's Plan pane renders it and writes ticks back into it, so re-read it before
 planning and update it as steps complete.
 
 Figure and PDF feedback lives in `.review/<file>.json` next to the figure or PDF
