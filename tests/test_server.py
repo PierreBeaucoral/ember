@@ -698,6 +698,7 @@ def test_practice_project_creates_and_ticks(monkeypatch, tmp_path):
     viz = tmp_path / "viz"
     viz.mkdir()
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))   # Path.home() on Windows
     monkeypatch.setattr(srv, "VIZ_DIR", viz)
     st = srv.practice_create()
     d = home / "Ember-practice"
@@ -2122,6 +2123,21 @@ def test_window_clears_the_internet_mark_on_its_binaries(tmp_path, monkeypatch):
 
 # ---------------------------------------------------------------- port guard
 
+def _wait_listening(port, proc, timeout=20):
+    """Alive is not listening: a cold interpreter on a CI runner can take
+    seconds to bind."""
+    end = time.time() + timeout
+    while time.time() < end:
+        assert proc.poll() is None, f"exited with {proc.returncode}"
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+            return
+        except OSError:
+            time.sleep(0.1)
+    pytest.fail(f"nothing listening on {port} after {timeout}s")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="no lsof/ps: the guard is a no-op on Windows")
 def test_port_guard_kills_stale_server_and_refuses_foreign(tmp_path):
     """Startup kills a previous server.py still holding the port, but
     refuses to kill (and exits on) a foreign process."""
@@ -2129,14 +2145,14 @@ def test_port_guard_kills_stale_server_and_refuses_foreign(tmp_path):
     s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
     s.close()
+    (tmp_path / "projects").mkdir()   # CI runners have no ~/.claude/projects
 
     # foreign holder: refused, never killed
     holder = subprocess.Popen(
-        [sys.executable, "-m", "http.server", str(port)],
+        [sys.executable, "-m", "http.server", "--bind", "127.0.0.1", str(port)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        time.sleep(1.5)
-        assert holder.poll() is None
+        _wait_listening(port, holder)
         with pytest.raises(SystemExit, match="held by another program"):
             srv.kill_stale_server(port)
         assert holder.poll() is None
@@ -2146,11 +2162,11 @@ def test_port_guard_kills_stale_server_and_refuses_foreign(tmp_path):
 
     # stale Ember server: killed so the next start can bind
     stale = subprocess.Popen(
-        [sys.executable, str(HERE.parent / "server.py"), "--port", str(port)],
+        [sys.executable, str(HERE.parent / "server.py"), "--port", str(port),
+         "--root", str(tmp_path)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        time.sleep(2)
-        assert stale.poll() is None
+        _wait_listening(port, stale)
         srv.kill_stale_server(port)
         stale.wait(timeout=10)
         assert stale.returncode != 0
