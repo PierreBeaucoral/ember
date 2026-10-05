@@ -3829,6 +3829,38 @@ def quick_edit_off():
         k32.SetConsoleMode(h, (mode.value & ~0x0040) | 0x0080)
 
 
+def kill_stale_server(port):
+    """A wedged previous instance still holding the port blocks startup until
+    reboot; kill it — but only if it is one of our own server runs."""
+    if shutil.which("lsof") is None or shutil.which("ps") is None:   # Windows
+        return
+    try:
+        out = subprocess.run(["lsof", "-ti", f"tcp:{port}", "-sTCP:LISTEN"],
+                             capture_output=True, text=True, timeout=5).stdout
+    except subprocess.SubprocessError:
+        return
+    for pid_s in out.split():
+        pid = int(pid_s)
+        if pid == os.getpid():
+            continue
+        try:
+            cmd = subprocess.run(["ps", "-p", str(pid), "-o", "command="],
+                                 capture_output=True, text=True,
+                                 timeout=5).stdout.strip()
+        except subprocess.SubprocessError:
+            continue
+        # "server.py" = this file; "--server" = the frozen window build
+        if "server.py" not in cmd and "--server" not in cmd:
+            sys.exit(f"error: port {port} is held by another program "
+                     f"(pid {pid}: {cmd[:100]}) — pass --port to pick another")
+        print(f"killing stale Ember server on port {port} (pid {pid})",
+              file=sys.stderr)
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+
 def main():
     ap = argparse.ArgumentParser(description="Ember — a workspace for Claude Code")
     ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 3456)))
@@ -3861,7 +3893,19 @@ def main():
               f"{len(markers)} session marker(s) from spawned terminals so "
               f"their transcripts are saved", file=sys.stderr)
 
-    srv = ThreadingHTTPServer((args.host, args.port), Handler)
+    try:
+        srv = ThreadingHTTPServer((args.host, args.port), Handler)
+    except OSError:
+        kill_stale_server(args.port)
+        srv = None
+        for _ in range(20):                 # up to 10s for SIGTERM to land
+            try:
+                srv = ThreadingHTTPServer((args.host, args.port), Handler)
+                break
+            except OSError:
+                time.sleep(0.5)
+        if srv is None:
+            raise
     quick_edit_off()
     # never print the token: this output is often redirected to a log file.
     # ASCII only: a redirected Windows stdout is cp1252 and can't encode "→"

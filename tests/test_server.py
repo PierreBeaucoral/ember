@@ -9,6 +9,8 @@ import importlib.util
 import json
 import re
 import os
+import socket
+import subprocess
 import sys
 import threading
 import time
@@ -2026,3 +2028,43 @@ def test_window_clears_the_internet_mark_on_its_binaries(tmp_path, monkeypatch):
     assert not os.path.exists(str(dll) + ":Zone.Identifier")
     assert os.path.exists(str(txt) + ":Zone.Identifier")       # only binaries
     assert dll.read_bytes() == b"x"                            # the file itself stays
+
+
+# ---------------------------------------------------------------- port guard
+
+def test_port_guard_kills_stale_server_and_refuses_foreign(tmp_path):
+    """Startup kills a previous server.py still holding the port, but
+    refuses to kill (and exits on) a foreign process."""
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+
+    # foreign holder: refused, never killed
+    holder = subprocess.Popen(
+        [sys.executable, "-m", "http.server", str(port)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        time.sleep(1.5)
+        assert holder.poll() is None
+        with pytest.raises(SystemExit, match="held by another program"):
+            srv.kill_stale_server(port)
+        assert holder.poll() is None
+    finally:
+        holder.terminate()
+        holder.wait()
+
+    # stale Ember server: killed so the next start can bind
+    stale = subprocess.Popen(
+        [sys.executable, str(HERE.parent / "server.py"), "--port", str(port)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        time.sleep(2)
+        assert stale.poll() is None
+        srv.kill_stale_server(port)
+        stale.wait(timeout=10)
+        assert stale.returncode != 0
+    finally:
+        if stale.poll() is None:
+            stale.terminate()
+            stale.wait()

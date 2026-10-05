@@ -118,8 +118,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
                 p.executableURL = bundled
                 p.arguments = ["-B", server, "--port", PORT]
             } else {
-                p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-                p.arguments = ["python3", server, "--port", PORT]
+                // pinned: /usr/bin/env python3 takes whatever PATH offers
+                // first — anaconda's python SIGABRT-crashed here 2026-10-01
+                p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+                p.arguments = [server, "--port", PORT]
             }
             // startup crashes land here; the server also keeps its own
             // rotating log in Application Support
