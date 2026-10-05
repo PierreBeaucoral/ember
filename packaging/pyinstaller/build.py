@@ -7,8 +7,11 @@
 The executable is the window (native/window.py), the server (--server) and
 the Claude Code tees (devtools_hooks.py …) in one; the release workflow runs
 this on Windows and Linux. macOS uses packaging/macos/build-app.sh instead.
+The installers wrap dist/Ember: packaging/windows/ember.iss (Inno Setup) and
+packaging/linux/build-appimage.sh.
 """
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -16,6 +19,27 @@ import PyInstaller.__main__
 
 REPO = Path(__file__).resolve().parents[2]
 BUILD = REPO / "build" / "pyinstaller"
+
+
+def version_file():
+    """Ember.exe's Properties → Details, from the one version number in
+    server.py."""
+    v = re.search(r'^VERSION = "([^"]+)"', (REPO / "server.py").read_text(encoding="utf-8"),
+                  re.M).group(1)
+    n = tuple((list(map(int, re.findall(r"\d+", v))) + [0] * 4)[:4])
+    strings = {"CompanyName": "Pierre Beaucoral", "FileDescription": "Ember",
+               "FileVersion": v, "InternalName": "Ember", "OriginalFilename": "Ember.exe",
+               "ProductName": "Ember", "ProductVersion": v,
+               "LegalCopyright": "MIT License, Pierre Beaucoral"}
+    f = BUILD / "version.txt"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(
+        f"VSVersionInfo(ffi=FixedFileInfo(filevers={n}, prodvers={n}, mask=0x3f, flags=0x0,"
+        " OS=0x40004, fileType=0x1, subtype=0x0, date=(0, 0)),"
+        " kids=[StringFileInfo([StringTable('040904B0', ["
+        + ", ".join(f"StringStruct({k!r}, {val!r})" for k, val in strings.items())
+        + "])]), VarFileInfo([VarStruct('Translation', [1033, 1200])])])\n", encoding="utf-8")
+    return f
 
 
 def main():
@@ -32,7 +56,8 @@ def main():
         args += ["--add-data", f"{REPO / src}{os.pathsep}{dest}"]
     if sys.platform == "win32":
         # no console window; window.py rebuilds stdio for hooks and the server
-        args += ["--windowed", "--icon", str(REPO / "launchers" / "windows" / "claude-devtools.ico")]
+        args += ["--windowed", "--icon", str(REPO / "launchers" / "windows" / "claude-devtools.ico"),
+                 "--version-file", str(version_file())]
     PyInstaller.__main__.run(args)
 
 

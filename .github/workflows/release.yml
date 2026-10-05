@@ -14,7 +14,12 @@ permissions:
   contents: write
 jobs:
   macos:
-    runs-on: macos-latest          # arm64
+    strategy:
+      matrix:
+        include:
+          - {runner: macos-latest, arch: arm64}
+          - {runner: macos-15-intel, arch: x86_64}   # Intel Macs
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       # a tag must match server.py's VERSION (the apps report it and compare it
@@ -29,9 +34,12 @@ jobs:
       - run: python3 -m pip install Pillow      # the app icon
       - run: bash packaging/macos/build-app.sh dist
       - run: python3 tools/smoke_app.py macapp dist/Ember.app
-      - run: ditto -c -k --keepParent dist/Ember.app Ember-macos-arm64.zip
+      # the usual "drag Ember to Applications" window
+      - run: |
+          mkdir dmg && ditto dist/Ember.app dmg/Ember.app && ln -s /Applications dmg/Applications
+          hdiutil create -volname Ember -srcfolder dmg -format UDZO -o Ember-macos-${{ matrix.arch }}.dmg
       - uses: actions/upload-artifact@v4
-        with: {name: macos, path: Ember-macos-arm64.zip, retention-days: 7}
+        with: {name: "macos-${{ matrix.arch }}", path: "Ember-macos-${{ matrix.arch }}.dmg", retention-days: 7}
 
   windows:
     runs-on: windows-latest
@@ -49,8 +57,24 @@ jobs:
         timeout-minutes: 3
       - shell: pwsh
         run: Compress-Archive -Path dist/Ember -DestinationPath Ember-windows-x64.zip
+      # the installer (Start menu, uninstaller); the zip stays as the portable copy
+      - shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            choco install innosetup -y --no-progress
+            $env:PATH += ";${env:ProgramFiles(x86)}\Inno Setup 6"
+          }
+          $v = (Select-String -Path server.py -Pattern '^VERSION = "([^"]+)"').Matches[0].Groups[1].Value
+          iscc /Qp "/DVersion=$v" packaging\windows\ember.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Move-Item dist\Ember-Setup-x64.exe .
+      # silent per-user install, then the installed copy must run
+      - shell: pwsh
+        run: |
+          Start-Process -Wait .\Ember-Setup-x64.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          python tools/smoke_app.py frozen "$env:LOCALAPPDATA\Programs\Ember\Ember.exe"
       - uses: actions/upload-artifact@v4
-        with: {name: windows, path: Ember-windows-x64.zip, retention-days: 7}
+        with: {name: windows, path: "Ember-windows-x64.zip\nEmber-Setup-x64.exe", retention-days: 7}
 
   linux:
     # the oldest supported runner: its glibc sets the oldest distro that runs it
@@ -71,8 +95,11 @@ jobs:
         continue-on-error: true
         timeout-minutes: 3
       - run: tar -czf Ember-linux-x86_64.tar.gz -C dist Ember
+      - run: bash packaging/linux/build-appimage.sh && mv dist/Ember-linux-x86_64.AppImage .
+      - run: python tools/smoke_app.py frozen Ember-linux-x86_64.AppImage
+        env: {APPIMAGE_EXTRACT_AND_RUN: "1"}    # no FUSE on runners
       - uses: actions/upload-artifact@v4
-        with: {name: linux, path: Ember-linux-x86_64.tar.gz, retention-days: 7}
+        with: {name: linux, path: "Ember-linux-x86_64.tar.gz\nEmber-linux-x86_64.AppImage", retention-days: 7}
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')

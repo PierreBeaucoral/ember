@@ -244,6 +244,10 @@ def install_desktop_entry():
 def main():
     global server
     reattach_std()
+    if FROZEN and os.environ.get("APPIMAGE"):
+        # inside an AppImage sys.executable is a mount that vanishes on exit;
+        # the hooks, the menu entry and the detached server need the file
+        sys.executable = os.environ["APPIMAGE"]
     args = sys.argv[1:]
     if args[:1] == ["devtools_hooks.py"]:
         import devtools_hooks

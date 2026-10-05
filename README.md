@@ -351,9 +351,10 @@ no Python or anything else to install. Each app opens Ember in its own window.
 
 | OS | File | First launch |
 |---|---|---|
-| macOS (Apple silicon) | `Ember-macos-arm64.zip` | Unzip, drag **Ember** to Applications, open it. macOS says it can't check the app: **System Settings → Privacy & Security → Open Anyway**, or once in Terminal: `xattr -dr com.apple.quarantine /Applications/Ember.app` |
-| Windows 10 / 11 | `Ember-windows-x64.zip` | Unzip anywhere (e.g. `Documents\Ember`), open `Ember.exe`. SmartScreen: **More info → Run anyway** |
-| Linux (x86-64) | `Ember-linux-x86_64.tar.gz` | `tar -xzf Ember-linux-x86_64.tar.gz`, then `Ember/Ember --install` adds it to your applications menu |
+| macOS (Apple silicon) | `Ember-macos-arm64.dmg` | Open it, drag **Ember** to Applications, open it from there. macOS says it can't check the app: **System Settings → Privacy & Security → Open Anyway**, or once in Terminal: `xattr -dr com.apple.quarantine /Applications/Ember.app` |
+| macOS (Intel) | `Ember-macos-x86_64.dmg` | The same |
+| Windows 10 / 11 | `Ember-Setup-x64.exe` | Run it: no admin rights needed, it adds Ember to the Start menu (and the desktop if ticked) and to **Settings → Apps** for uninstalling. SmartScreen: **More info → Run anyway**. No-install copy: `Ember-windows-x64.zip`, unzip anywhere and open `Ember.exe` |
+| Linux (x86-64) | `Ember-linux-x86_64.AppImage` | `chmod +x Ember-linux-x86_64.AppImage`, then open it; `./Ember-linux-x86_64.AppImage --install` adds it to your applications menu. Without FUSE: `--appimage-extract-and-run`. Or the folder: `tar -xzf Ember-linux-x86_64.tar.gz`, then `Ember/Ember --install` |
 
 - The warnings appear once because the apps are not code-signed (a paid certificate).
   They are built from this repository by
@@ -371,7 +372,6 @@ no Python or anything else to install. Each app opens Ember in its own window.
 - Only the downloaded app (`Ember.exe`, `Ember`, `Ember.app`) opens its own window. Run
   from source (`Ember.cmd`, the `install.ps1` shortcuts, `python server.py`), Ember opens
   in a browser window: Edge or Chrome in app mode, else your default browser
-- Intel Macs: build the app from source (below), which builds for the Mac it runs on
 - Keep the app where you first open it: the Live limits, Live activity and Session
   guards add-ons point Claude Code at it. After moving it, tick them again in 🧩
 - The apps keep the Viz inbox in Ember's data folder (`~/Library/Application
@@ -435,7 +435,7 @@ Creates Desktop and Start-menu shortcuts with the app's own icon
 shortcuts), or double-click
 `launchers\windows\Ember.cmd`. The old `Claude DevTools.cmd` still forwards to Ember.
 These open Ember in a browser window (Edge or Chrome in app mode). For Ember's own
-window, use `Ember.exe` from the [release zip](https://github.com/PierreBeaucoral/ember/releases/latest)
+window, install `Ember-Setup-x64.exe` from the [latest release](https://github.com/PierreBeaucoral/ember/releases/latest)
 — and replace the old shortcuts, which still point at the browser launcher.
 
 The embedded terminal works on **Windows 10 1809+** through ConPTY, driven via `ctypes`
@@ -602,8 +602,10 @@ helpers.
 
 **Releases.** Push a tag `vX.Y.Z` (after setting `VERSION` in `server.py` and
 `CITATION.cff`): [the release workflow](.github/workflows/release.yml) builds the three
-apps, smoke-tests each, and attaches them to the release. **Actions → release → Run
-workflow** does the same without publishing (a dry run; the zips stay as artifacts).
+apps (macOS on Apple silicon and Intel), wraps them in installers (`.dmg`, Inno Setup
+`packaging/windows/ember.iss`, AppImage `packaging/linux/build-appimage.sh`), smoke-tests
+each, and attaches them to the release. **Actions → release → Run workflow** does the
+same without publishing (a dry run; the files stay as artifacts).
 
 | File | Role |
 |---|---|
