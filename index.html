@@ -709,6 +709,54 @@
   }
   @media (max-width: 900px){ #sidebar{ width:240px; min-width:200px; } }
   @media (max-width: 560px){ #app{ flex-direction:column; } #sidebar{ width:100%; max-height:45vh; border-right:none; border-bottom:1px solid var(--border); } }
+  /* ---------- simple mode + beginners' help (people coming from the Claude app) ----------
+     body.simple: plain words, labels on icon buttons, expert parts hidden.
+     .xfull / .xsimple: the two wordings of one control; .xadv: expert-only. */
+  .xsimple { display:none; }
+  body.simple .xsimple { display:revert; }
+  body.simple .xfull, body.simple .xadv, body.simple #btnAddons, body.simple #btnShell,
+  body.simple #ptab-config, body.simple #planimprove, body.simple #btnCtx,
+  body.simple .keyhint, body.simple #vizPath { display:none !important; }
+  body.simple .topbtns .ibtn { padding:0 8px; }
+  body.simple .topbtns .ibtn::after { margin-left:5px; }
+  body.simple #btnNotify::after { content:"Alerts"; }
+  body.simple #btnTheme::after { content:"Theme"; }
+  body.simple #btnRight::after { content:"Side panels"; }
+  body.simple #btnQuit::after { content:"Quit"; }
+  .gl { display:none; }
+  body.simple .gl { display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; padding:0; margin:0 4px; flex:none; vertical-align:middle;
+    border-radius:50%; border:1px solid var(--border-strong); background:none;
+    color:var(--dim); font:600 10.5px/1 var(--mono); cursor:help; }
+  body.simple .gl:hover, body.simple .gl:focus-visible { color:var(--fg); border-color:var(--accent); }
+  #gloss { width:min(560px, 94vw); }
+  #glosslist { overflow-y:auto; padding:0 18px 8px; font-size:12.5px; line-height:1.5; }
+  #glosslist dt { font-weight:600; margin-top:10px; }
+  #glosslist dd { margin:2px 0 0; color:var(--dim); }
+  /* welcome = first-run checklist */
+  .ember-welcome .wsetup { text-align:left; margin-top:18px; }
+  .wstep { display:flex; gap:10px; align-items:flex-start; padding:9px 10px;
+           border:1px solid var(--border); border-radius:8px; margin:6px 0; color:var(--fg); }
+  .wstep .wico { flex:none; width:20px; text-align:center; }
+  .wstep .wtxt { flex:1; min-width:0; font-size:13px; line-height:1.45; }
+  .wstep .wtxt small { display:block; color:var(--dim); font-size:12px; }
+  .wstep .copy { margin:6px 0 0; }
+  .wstep.todo { border-color:var(--accent); }
+  .wchoice { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .wchoice .copy { margin:0; }
+  /* guided tour: a spotlight on one pane and a card beside it */
+  #tour { position:fixed; inset:0; z-index:200; }
+  #tourhole { position:fixed; border-radius:8px; pointer-events:none;
+              box-shadow:0 0 0 3px var(--accent), 0 0 0 9999px rgba(0,0,0,.55);
+              transition:all .2s ease; }
+  #tourcard { position:fixed; width:min(340px, 92vw); background:var(--panel);
+              border:1px solid var(--border-strong); border-radius:10px; padding:14px 16px 12px;
+              box-shadow:0 18px 50px var(--shadow); color:var(--fg); }
+  #tourcard h2 { margin:0 0 6px; font-size:15px; }
+  #tourcard p { margin:0; font-size:13px; line-height:1.5; color:var(--fg); }
+  #tourcard .tfoot { display:flex; align-items:center; gap:6px; margin-top:12px; }
+  #tourcard .tfoot .copy { margin:0; }
+  #tourcard .tstep { color:var(--dim); font-size:11.5px; margin-right:auto; }
 </style>
 </head>
 <body>
@@ -722,7 +770,7 @@
           <button class="copy termbtn ibtn" id="btnNotify" aria-label="OS notifications" aria-pressed="false">🔔</button>
           <button class="copy termbtn ibtn" id="btnTheme" title="change theme" aria-label="Change theme" aria-haspopup="menu">◐</button>
           <button class="copy termbtn ibtn" id="btnRight" title="toggle usage/viz panels" aria-label="Toggle the right column" aria-pressed="true">◫</button>
-          <button class="copy termbtn" id="btnTerm" title="open a terminal (Ctrl+2 focuses it)">⌨ CLI</button>
+          <button class="copy termbtn" id="btnTerm" title="open a terminal (Ctrl+2 focuses it)"><span class="xfull">⌨ CLI</span><span class="xsimple">⌨ Chat</span></button>
           <button class="copy termbtn ibtn" id="btnQuit" title="Quit Ember" aria-label="Quit Ember: stop the server">⏻</button>
         </div>
       <input id="search" placeholder="Filter projects · Enter searches transcripts" autocomplete="off"
@@ -747,23 +795,28 @@
         <p>Follow your Claude Code sessions, inspect each step,<br>and pick up where you left off.</p>
         <p class="welcome-start">Choose a project and session in the sidebar.</p>
         <p class="welcome-hint">Session transcripts are read-only. Your dashboard runs locally.</p>
+        <div class="wsetup" id="wsetup"></div>
       </div></div>
     </div>
 
     <div id="hsplitL" class="split hsplit" title="drag to resize rows" aria-label="Resize terminal pane" aria-controls="cell-term"></div>
     <div class="cell" id="cell-term">
-      <div class="qhead">⌨ Terminal
+      <div class="qhead">⌨ Terminal<button class="gl" data-gl="terminal" aria-label="What is the terminal?">?</button>
         <span id="ttablist" role="tablist" aria-label="Terminals"></span>
         <span style="margin-left:auto;display:flex;gap:6px">
           <button class="copy termbtn" id="btnShell" title="plain shell in $HOME">+ shell</button>
-          <button class="copy termbtn" id="btnClaudeHome" title="start claude in a folder…" aria-haspopup="menu">+ claude</button>
+          <button class="copy termbtn" id="btnClaudeHome" title="start claude in a folder…" aria-haspopup="menu"><span class="xfull">+ claude</span><span class="xsimple">＋ New chat with Claude</span></button>
           <button class="copy maxbtn ibtn" data-cell="cell-term" title="maximize / restore (Ctrl+Shift+M)" aria-label="Maximize the terminal pane" aria-pressed="false">⛶</button>
         </span>
       </div>
       <div id="termbody">
         <div id="termempty" class="vizempty" style="padding:20px">
-          No terminal yet — <b>+ claude</b> or <b>+ shell</b> above, ⌨ on a project,
-          or “resume in CLI” on a session.</div>
+          <span class="xfull">No terminal yet — <b>+ claude</b> or <b>+ shell</b> above, ⌨ on a project,
+          or “resume in CLI” on a session.</span>
+          <span class="xsimple">This is where you talk to Claude. Click <b>＋ New chat with Claude</b>
+          above and pick the folder it should work in, then type your message and press Enter.
+          It is the same Claude as in the app, but here it can open, run and change the files in
+          that folder. It asks before it does.</span></div>
       </div>
     </div>
 
@@ -771,7 +824,7 @@
    <div id="vsplit" class="split" title="drag to resize columns" aria-label="Resize right column" aria-controls="colR"></div>
    <div class="col" id="colR">
     <div class="cell" id="cell-usage">
-      <div class="qhead">⚡ Token use
+      <div class="qhead">⚡ Token use<button class="gl" data-gl="tokens" aria-label="What are tokens?">?</button>
         <span id="blockreset" style="margin-left:auto;font-weight:400"></span>
         <button class="copy maxbtn ibtn" data-cell="cell-usage" title="maximize / restore (Ctrl+Shift+M)" aria-label="Maximize the token-use pane" aria-pressed="false">⛶</button>
       </div>
@@ -783,7 +836,7 @@
         <span class="tabs" role="tablist" aria-label="Plan and config" data-auto="1">
           <span class="ptab active" id="ptab-plan" data-view="plan" role="tab" tabindex="0" aria-selected="true" aria-controls="planbody">✅ Plan</span>
           <span class="ptab" id="ptab-config" data-view="config" role="tab" tabindex="-1" aria-selected="false" aria-controls="configbody">⚙ Config</span>
-        </span>
+        </span><button class="gl" data-gl="plan" aria-label="What is the plan?">?</button>
         <span id="plancount" style="margin-left:auto;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
         <button class="copy ibtn" id="planimprove" style="display:none"
                 title="open the latest end-of-session retrospective" aria-label="Open the latest retrospective">🔎</button>
@@ -804,7 +857,7 @@
         <span class="tabs" role="tablist" aria-label="Viz and files" data-auto="1">
           <span class="vtab active" id="vtab-viz" data-view="viz" role="tab" tabindex="0" aria-selected="true" aria-controls="vizview">📊 Viz</span>
           <span class="vtab" id="vtab-files" data-view="files" role="tab" tabindex="-1" aria-selected="false" aria-controls="filesview">🗂 Files</span>
-        </span>
+        </span><button class="gl" data-gl="viz" aria-label="What is the Viz pane?">?</button>
         <button class="copy" id="vizReview" style="margin-left:auto;display:none"
                 title="point at parts of this figure or PDF and write what should change">💬 Comment</button>
         <button class="copy" id="vizPath" style="margin-left:0" title="copy watched folder path">copy path</button>
@@ -858,6 +911,7 @@
   <button class="sbseg" id="sbUsage" title="5-hour usage · click for the Token use pane"></button>
   <button class="sbseg sbshrink" id="sbViz" title="folder the Viz pane watches · click to browse it"></button>
   <button class="sbseg r" id="sbKeys" title="command palette"></button>
+  <button class="sbseg" id="sbHelp" title="guided tour, practice project, simple mode, glossary" aria-haspopup="menu">? Help</button>
 </footer>
 
 <dialog id="cp" class="adbox cp" aria-label="Command palette">
@@ -889,6 +943,14 @@
       <button class="copy" id="adclose">Close</button>
       <label style="margin-left:auto"><input type="checkbox" id="adquiet"> Don't show at launch</label>
     </div>
+</dialog>
+
+<dialog id="gloss" class="adbox" aria-labelledby="glosstitle">
+  <div class="adhead"><h2 id="glosstitle">Words you will see in Ember</h2>
+    <p>Claude Code is the Claude you know from the app, working on the files in a folder on
+      your computer. These are the terms that come with it.</p></div>
+  <dl id="glosslist"></dl>
+  <div class="adfoot"><button class="copy" id="glossclose">Close</button></div>
 </dialog>
 
 <!-- in-app confirm (replaces window.confirm): see ask() -->
@@ -1199,7 +1261,7 @@ function toast(msg, opts){
   t.setAttribute("role", kind === "err" ? "alert" : "status");
   let timer = null;
   const close = () => { clearTimeout(timer); t.remove(); };
-  const arm = () => { clearTimeout(timer); if(kind !== "err") timer = setTimeout(close, 8000); };
+  const arm = () => { clearTimeout(timer); if(kind !== "err" && !opts.sticky) timer = setTimeout(close, 8000); };
   const m = document.createElement("div");
   m.className = "tmsg"; m.textContent = msg;
   if(opts.onclick) m.onclick = () => { close(); opts.onclick(); };
@@ -1720,7 +1782,7 @@ function renderSession(s, ctx){
   const t = s.totals || {};
   head.innerHTML = `
     <h2>${esc(cleanTitle(s.title) || s.id)}
-      ${!ctx.isAgent ? '<button class="copy termbtn" id="btnResume" style="font-size:12px;vertical-align:middle" title="claude --resume '+esc(s.id)+'">⌨ resume in CLI</button>' : ''}
+      ${!ctx.isAgent ? '<button class="copy termbtn" id="btnResume" style="font-size:12px;vertical-align:middle" title="claude --resume '+esc(s.id)+'"><span class="xfull">⌨ resume in CLI</span><span class="xsimple">▶ Continue this conversation</span></button>' : ''}
       <button class="copy termbtn" id="btnExport" style="font-size:12px;vertical-align:middle" title="save this session as one HTML file to share">⇩ export</button>
       <button class="copy termbtn" id="btnCtx" style="font-size:12px;vertical-align:middle" aria-pressed="${CTX_PANEL}" title="what is in the context window, by source">◧ context</button></h2>
     <div class="meta">${esc(s.model||"")} · <span class="nent">${s.entries.length}</span> timeline entries
@@ -1730,9 +1792,9 @@ function renderSession(s, ctx){
     <div class="stats">${statsHtml(t)}</div>
     <div class="chips">${chipsHtml(s)}</div>
     <div class="toggles">
-      <label><input type="checkbox" id="tgThink" checked> thinking</label>
-      <label><input type="checkbox" id="tgTools" checked> tool calls</label>
-      <label><input type="checkbox" id="tgSys"> system / commands</label>
+      <label><input type="checkbox" id="tgThink" checked> thinking</label><button class="gl" data-gl="thinking" aria-label="What is thinking?">?</button>
+      <label><input type="checkbox" id="tgTools" checked> tool calls</label><button class="gl" data-gl="tool" aria-label="What is a tool call?">?</button>
+      <label class="xadv"><input type="checkbox" id="tgSys"> system / commands</label>
       <label><input type="checkbox" id="tgAgents" checked> agents</label>
       <span class="keyhint" title="with the timeline focused">j/k turns · e errors · a agents · s skills (⇧ = back)</span>
     </div>`;
@@ -2955,6 +3017,10 @@ async function openTerm(kind, opts = {}){
   }
   t.sentCols = term.cols; t.sentRows = term.rows;   // the size it was born with
   attachTerm(t, info);
+  if(kind !== "shell" && !lsGet("ember-tip-perm")){
+    lsSet("ember-tip-perm", "1");
+    toast("Type your message and press Enter to send it. " + GLOSS.permission[1], {sticky: true});
+  }
 }
 
 /* After a reload the PTYs are still running on the server: give each a tab
@@ -3420,11 +3486,11 @@ async function refreshUsage(){
     if(b && u.baseline && u.baseline.p90){
       const pct = b.output / u.baseline.p90 * 100;
       const color = pct > 90 ? "var(--err)" : pct > 65 ? "var(--tool)" : "var(--ok)";
-      limitPart = `
+      limitPart = `<div class="xadv">
       <div class="urow" style="color:var(--dim)"><span>vs your P90 block (${fmtTok(u.baseline.p90)})</span>
         <b style="color:${color}">${pct.toFixed(0)}%</b></div>
       <div class="ubar" title="current block output vs the 90th percentile of your ${u.baseline.blocks} historical 5h blocks (best ever: ${fmtTok(u.baseline.max)})">
-        <div style="width:${Math.min(100,pct).toFixed(0)}%;background:${color}"></div></div>`;
+        <div style="width:${Math.min(100,pct).toFixed(0)}%;background:${color}"></div></div></div>`;
     }
     // official figures (the "Live limits" add-on) lead; P90 becomes the estimate
     const o = u.official, nowS = Date.now() / 1000;
@@ -3442,7 +3508,7 @@ async function refreshUsage(){
           <span>${o.context_pct != null ? "context " + Math.round(o.context_pct) + "%" : ""}${o.cost_usd != null ? " · $" + (+o.cost_usd).toFixed(2) : ""}</span></div>
         <div class="uhead">Estimate from local transcripts</div>` : "";
     const blockPart = officialPart + (b ? `
-      <div class="urow"><span>current 5h block</span><b>${fmtTok(b.output)}</b></div>
+      <div class="urow"><span>current 5h block<button class="gl" data-gl="block" aria-label="What is the 5-hour block?">?</button></span><b>${fmtTok(b.output)}</b></div>
       <div class="urow" style="color:var(--dim)"><span>requests</span><b style="color:var(--dim)">${b.requests}</b></div>
       <div class="ubar" title="time elapsed in this 5h block">
         <div style="width:${Math.min(100,((u.generated-b.start)/(b.end-b.start))*100).toFixed(0)}%"></div></div>${limitPart}`
@@ -3458,7 +3524,7 @@ async function refreshUsage(){
       <div class="urow"><span>last 7 days</span><b>${fmtTok(u.week.output)}</b></div>
       <div style="margin-top:8px;color:var(--dim);font-size:11px">last 24h (output/hour)</div>
       <svg id="sparkline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg>
-      <div style="margin-top:8px;color:var(--dim);font-size:11px">by model, 7 days</div>${models}
+      <div class="xadv"><div style="margin-top:8px;color:var(--dim);font-size:11px">by model, 7 days</div>${models}</div>
       <button class="copy" id="uHist" style="margin:8px 0 0;font-size:11.5px" title="output tokens per day, by project and model">📅 history (30–180 days)</button>
       <div style="margin-top:10px;color:var(--dim);font-size:10.5px">Computed from local transcripts (output tokens, deduped by request).${o
         ? " The official limits above come from Claude Code's statusline, " + fmtDur(Math.max(0, nowS - o.at)) + " ago."
@@ -3574,8 +3640,10 @@ async function refreshViz(){
     }
     if(!v.files.length){
       if(!vizPinned && !(vizGraphOffer && !graphOfferDismissed(vizGraphOffer.cwd))){
-        list.innerHTML = `<div class="vizempty">Empty. Ask a Claude Code session to write an
-          <b>.html</b>, image, or <b>.md</b> file into<br><code style="font-size:10.5px">${esc(v.dir)}</code><br>and it appears here automatically.</div>`;
+        list.innerHTML = `<div class="vizempty"><span class="xsimple">Charts and reports Claude makes
+          show up here. In a chat, ask for one, for example: “make a chart of …”.<br></span>
+          <span class="xfull">Empty. Ask a Claude Code session to write an
+          <b>.html</b>, image, or <b>.md</b> file into</span><span class="xsimple">They are saved in</span><br><code style="font-size:10.5px">${esc(v.dir)}</code><br><span class="xfull">and it appears here automatically.</span></div>`;
         clearPreview("#vizframe", "#vizpdf");
         vizActive = null; vizNewest = 0;
       }
@@ -3946,7 +4014,9 @@ function planEmpty(msg, withCreate){
 
 async function refreshPlan(force){
   if(planView !== "plan") return;
-  if(!planCwd){ planEmpty("Pick a project — its plan shows up here."); return; }
+  if(!planCwd){ planEmpty(`<span class="xfull">Pick a project — its plan shows up here.</span>
+    <span class="xsimple">Claude's to-do list for a project shows here, and you can tick it too.
+    Open a project in the sidebar or start a chat.</span>`); return; }
   if(planBusy) return;
   try{
     const cwd = planCwd, file = planFile;
@@ -3969,7 +4039,9 @@ function renderPlan(d){
   if(!d.file){
     planEmpty(`No plan file in <code style="font-size:10.5px">${esc(shortHome(d.dir||planCwd))}</code>.<br>
       Looks for <code>.claude/plan.md</code>, <code>quality_reports/plans/*.md</code>,
-      <code>PLAN.md</code>, <code>TODO.md</code>.`, true);
+      <code>PLAN.md</code>, <code>TODO.md</code>.
+      <span class="xsimple"><br>For a bigger task, ask Claude: “make a plan first”. Its checklist
+      appears here.</span>`, true);
     return;
   }
   planFile = d.file;
@@ -4275,6 +4347,11 @@ function cpActions(){
   add("Search transcripts…", () => cpSet("#"), K("⌘⇧F"), true);
   add("Go to file in current folder…", () => cpSet("/"), K("⌘⇧O"), true);
   add("Keyboard shortcuts", openKeys, "?");
+  add("Take the guided tour", startTour);
+  add("Start the practice project", startPractice);
+  add(SIMPLE() ? "Simple mode: off (show everything)" : "Simple mode: on (plain words, fewer buttons)",
+      () => setSimple(!SIMPLE()));
+  add("Glossary: words you will see in Ember", openGloss);
   if(inDesktopApp()) add("Open Ember in your browser", openInBrowser);
   add(APP.openIn === "browser" ? "Desktop app: open its own window at launch"
                                : "Desktop app: open the browser at launch",
@@ -4911,7 +4988,7 @@ $("#adgo").onclick = () => { if(!AD.busy && AD.picked.size) runInstallRounds(); 
 // at launch: open when something is missing, unless silenced for this exact set
 loadAddons().then(() => {
   const miss = missingIds();
-  if(miss && localStorage.getItem("cdl-addons-quiet") !== miss) openAddons();
+  if(miss && localStorage.getItem("cdl-addons-quiet") !== miss && lsGet("ember-simple") === "0") openAddons();
 });
 
 /* ---------- polling ---------- */
@@ -5235,11 +5312,255 @@ ${tl.outerHTML}</body></html>`;
   }catch(e){ toast("Export failed: " + e.message, {kind: "err"}); }
 }
 
+/* ---------- beginners: simple mode, glossary, welcome checklist, tour, practice
+   For people coming from the Claude app: they can chat, but folders-as-projects,
+   terminals, tokens and permission prompts are new. Everything here is opt-in
+   and replayable from "? Help" in the status bar and from the palette. */
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+const SIMPLE = () => document.body.classList.contains("simple");
+function setSimple(on){
+  document.body.classList.toggle("simple", on);
+  lsSet("ember-simple", on ? "1" : "0");
+  if(on && planView === "config") planTab("plan");     // its tab is hidden now
+  renderWelcome();
+  announce(on ? "Simple mode on" : "Simple mode off");
+}
+document.body.classList.toggle("simple", lsGet("ember-simple") === "1");
+
+// [term, plain definition] — the single source for ? buttons and the glossary
+const GLOSS = {
+  project: ["Project", "A folder on your computer. Claude works on the files in the folder you start it in, and Ember groups its conversations by folder."],
+  session: ["Conversation (session)", "One chat with Claude, like a chat in the Claude app. Ember keeps each one: open it to see what happened, or continue it."],
+  terminal: ["Terminal", "The text window where you talk to Claude. Type, press Enter. It is the same Claude as in the app, but it can also read, run and change files in your folder."],
+  permission: ["Permission prompt", "Before Claude runs a command or changes a file, it asks. Read what it wants to do, then choose with the arrow keys and Enter. Choose No if you are unsure."],
+  tokens: ["Tokens", "The pieces of text Claude reads and writes, roughly ¾ of a word each. Your Claude plan allows a certain amount every 5 hours and every week."],
+  block: ["5-hour block", "Claude plans count usage in 5-hour windows. A window starts with your first message and resets 5 hours later."],
+  context: ["Context window", "Everything Claude can see at once: your messages, its answers, the files it read. When it fills up, Claude summarises the older part (compaction) and carries on."],
+  thinking: ["Thinking", "Claude reasoning to itself before it answers. Interesting to read, safe to hide."],
+  tool: ["Tool call", "An action Claude takes: reading a file, running a command, searching the web. Each one is a line in the conversation."],
+  agent: ["Agent", "A helper Claude starts for a side task. It works on its own and reports back."],
+  plan: ["Plan", "A checklist saved as .claude/plan.md in the project folder. Claude ticks it as it works; you can tick it too."],
+  viz: ["Viz", "Charts, reports and PDFs Claude makes open here by themselves. Click 💬 Comment to point at what should change."],
+  claudemd: ["CLAUDE.md", "A note of standing instructions Claude reads at the start of every conversation, like custom instructions in the app."],
+};
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest(".gl");
+  if(!b || !GLOSS[b.dataset.gl]) return;
+  e.preventDefault(); e.stopPropagation();          // a ? inside a header must not toggle it
+  const [term, text] = GLOSS[b.dataset.gl];
+  toast(term + ": " + text, {sticky: true, action: {label: "All terms", run: openGloss}});
+}, true);
+function openGloss(){
+  $("#glosslist").innerHTML = Object.values(GLOSS)
+    .map(([t, d]) => `<dt>${esc(t)}</dt><dd>${esc(d)}</dd>`).join("");
+  showDialog($("#gloss"));
+  $("#glossclose").focus();
+}
+modal($("#gloss"));
+$("#glossclose").onclick = () => $("#gloss").close();
+
+$("#sbHelp").onclick = () => {
+  if(document.getElementById("menu")) return closeMenu();
+  openMenu($("#sbHelp"), m => {
+    menuItem(m, "🧭  Guided tour", "one minute: what each part of the screen is for", startTour);
+    menuItem(m, "🎓  Practice project", "ten minutes, hands on, with a small made-up dataset", startPractice);
+    menuItem(m, SIMPLE() ? "◻  Simple mode: turn off" : "◼  Simple mode: turn on",
+             "plain words, labels on buttons, fewer expert panels", () => setSimple(!SIMPLE()));
+    menuItem(m, "📖  Glossary", "the words you will see in Ember", openGloss);
+    menuItem(m, "⌨  Keyboard shortcuts", "", openKeys);
+  }, "Help");
+};
+
+/* Welcome = what a first-time user still needs, checked by the server. Only
+   while no conversation is open (the card lives in #main). */
+let SETUP = null;
+async function renderWelcome(){
+  const box = $("#wsetup");
+  if(!box || !box.isConnected) return;
+  try{ SETUP = await api("/api/setup"); }catch(e){ return; }
+  const st = SETUP, steps = [];
+  const pick = $("#main .welcome-start");
+  if(pick) pick.hidden = !st.projects;
+  const step = (ok, text, sub, btn) => steps.push(`<div class="wstep${ok ? "" : " todo"}">
+      <span class="wico" aria-hidden="true">${ok ? "✅" : "◻"}</span>
+      <div class="wtxt">${text}${sub ? `<small>${sub}</small>` : ""}${!ok && btn ? btn : ""}</div></div>`);
+  step(st.claude, st.claude ? "Claude Code is installed" : "Install Claude Code",
+       st.claude ? "" : "Claude Code is Claude for the files on your computer. The official installer runs in a terminal you can watch.",
+       `<button class="copy go" data-w="install">Install Claude Code</button>`);
+  step(st.logged_in === true, st.logged_in === true ? "Signed in to Claude" : "Sign in with your Claude account",
+       st.logged_in === true ? "" : "The first time you start a chat, Claude Code asks a few setup questions and then for your sign-in. Enter accepts the defaults. Use the same account as the Claude app (a Pro or Max plan, or an API key).");
+  step(st.projects, st.projects ? "You have conversations: pick one in the sidebar" : "Start your first chat",
+       st.projects ? "" : "Pick a folder for Claude to work in. A new, empty folder is a safe start.",
+       `<button class="copy go" data-w="chat">＋ New chat with Claude</button>`);
+  const first = lsGet("ember-simple") === null;
+  box.innerHTML = (first ? `<div class="wstep todo"><span class="wico" aria-hidden="true">👋</span>
+      <div class="wtxt">Coming from the Claude app?<small>Simple mode uses plain words, labels the buttons
+      and hides the expert panels. You can switch any time from <b>? Help</b> at the bottom right.</small>
+      <div class="wchoice"><button class="copy go" data-w="simple">Use simple mode and show me around</button>
+      <button class="copy" data-w="full">Show everything</button></div></div></div>` : "")
+    + (first || SIMPLE() || !(st.claude && st.projects) ? steps.join("") : "")
+    + `<div class="wchoice"><button class="copy" data-w="practice">🎓 Practice project (10 min)</button>
+       <button class="copy" data-w="tour">🧭 Tour of the screen (1 min)</button>
+       <button class="copy" data-w="gloss">📖 Glossary</button></div>`;
+  box.querySelectorAll("[data-w]").forEach(b => b.onclick = () => ({
+    install: installClaude, chat: () => pickClaudeFolder(b), practice: startPractice,
+    tour: startTour, gloss: openGloss,
+    simple: () => { setSimple(true); startTour(); }, full: () => setSimple(false),
+  })[b.dataset.w]());
+}
+async function installClaude(){
+  await loadAddons();
+  if(!AD.pre.claude || !(AD.pre.claude.commands || []).length){
+    toast("No installer for this system: see docs.claude.com/en/docs/claude-code", {kind: "err"});
+    return;
+  }
+  setRight(true);
+  await runInNewShell("install Claude Code", [preLine("claude")]);
+}
+// re-check while the welcome shows and something is missing (an install finishing)
+poll(() => { if(SETUP && !(SETUP.claude && SETUP.projects) && $("#wsetup") && $("#wsetup").isConnected) renderWelcome(); }, 5000);
+
+/* Guided tour: a spotlight walks the panes. Steps whose pane is hidden or
+   collapsed are skipped. Esc or Skip ends it; focus goes back where it was. */
+const TOUR = [
+  ["#sidebar", "Your projects and conversations",
+   "Each project is a folder on your computer. Under it are the conversations you had with Claude there. Click one to see exactly what Claude did."],
+  ["#cell-main", "What Claude did, step by step",
+   "An open conversation shows here: your messages, Claude's answers, and every action it took, such as reading a file or running code. The chat view, with the details the app hides."],
+  ["#cell-term", "Where you talk to Claude",
+   "Start a chat with ＋ New chat with Claude and pick a folder. Type, press Enter. Claude asks before it runs a command or changes a file."],
+  ["#cell-plan", "Claude's to-do list",
+   "For bigger tasks Claude writes a checklist here and ticks it as it works. You can tick boxes too."],
+  ["#cell-viz", "Charts and reports",
+   "Ask Claude for a chart or a report and it opens here. 💬 Comment lets you point at what should change. The Files tab browses the folder."],
+  ["#cell-usage", "How much you have used",
+   "Your Claude plan allows a certain amount of use every 5 hours and every week. This pane shows where you stand."],
+  ["#sbHelp", "Help is always here",
+   "Replay this tour, try the practice project, switch simple mode, or read the glossary. " + K("⌘K") + " finds any command."],
+];
+let tourAt = -1, tourBack = null;
+function startTour(){
+  if(maxedCell) toggleMax(maxedCell);
+  setRight(true);
+  closeMenu();
+  tourBack = document.activeElement;
+  let el = $("#tour");
+  if(!el){
+    el = document.createElement("div"); el.id = "tour";
+    el.innerHTML = `<div id="tourhole"></div><div id="tourcard" role="dialog" aria-modal="true" aria-labelledby="tourtitle" aria-describedby="tourtext">
+      <h2 id="tourtitle"></h2><p id="tourtext"></p>
+      <div class="tfoot"><span class="tstep" id="tourstep"></span>
+        <button class="copy" id="tourskip">Skip</button><button class="copy" id="tourprev">Back</button>
+        <button class="copy go" id="tournext">Next</button></div></div>`;
+    document.body.appendChild(el);
+    $("#tourskip").onclick = endTour;
+    $("#tourprev").onclick = () => tourGo(-1);
+    $("#tournext").onclick = () => tourGo(1);
+    el.addEventListener("keydown", e => {
+      if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); endTour(); }
+      else if(e.key === "Tab"){                     // keep focus on the card
+        const bs = [...el.querySelectorAll("button")].filter(b => !b.disabled);
+        const i = bs.indexOf(document.activeElement);
+        e.preventDefault();
+        bs[(i + (e.shiftKey ? bs.length - 1 : 1)) % bs.length].focus();
+      }
+    });
+  }
+  tourAt = -1;
+  requestAnimationFrame(() => tourGo(1));            // after setRight's layout
+}
+const tourVisible = sel => { const n = $(sel), r = n && n.getBoundingClientRect();
+                             return r && r.width > 40 && r.height > 16; };
+function tourGo(dir){
+  let i = tourAt + dir;
+  while(i >= 0 && i < TOUR.length && !tourVisible(TOUR[i][0])) i += dir;
+  if(i < 0) return;
+  if(i >= TOUR.length) return endTour();
+  tourAt = i;
+  const [sel, title, text] = TOUR[i];
+  $("#tourtitle").textContent = title;
+  $("#tourtext").textContent = text;
+  $("#tourstep").textContent = `${i + 1} of ${TOUR.length}`;
+  $("#tourprev").disabled = i === 0;
+  $("#tournext").textContent = i === TOUR.length - 1 ? "Done" : "Next";
+  tourPlace();
+  $("#tournext").focus();
+  announce(title);
+}
+function tourPlace(){
+  if(tourAt < 0 || !$("#tour")) return;
+  const r = $(TOUR[tourAt][0]).getBoundingClientRect(), pad = 4, gap = 12;
+  Object.assign($("#tourhole").style, {left: r.left - pad + "px", top: r.top - pad + "px",
+    width: r.width + 2 * pad + "px", height: r.height + 2 * pad + "px"});
+  const card = $("#tourcard"), cw = card.offsetWidth, ch = card.offsetHeight;
+  const W = innerWidth, H = innerHeight;
+  // beside the pane if it fits, else above/below, else over its middle
+  let x, y;
+  if(r.right + gap + cw < W) { x = r.right + gap; y = r.top; }
+  else if(r.left - gap - cw > 0) { x = r.left - gap - cw; y = r.top; }
+  else if(r.top - gap - ch > 0) { x = r.left; y = r.top - gap - ch; }
+  else if(r.bottom + gap + ch < H) { x = r.left; y = r.bottom + gap; }
+  else { x = r.left + (r.width - cw) / 2; y = r.top + (r.height - ch) / 2; }
+  card.style.left = clamp(x, 8, W - cw - 8) + "px";
+  card.style.top = clamp(y, 8, H - ch - 8) + "px";
+}
+window.addEventListener("resize", tourPlace);
+function endTour(){
+  const el = $("#tour");
+  if(el) el.remove();
+  tourAt = -1;
+  lsSet("ember-tour-seen", "1");
+  if(tourBack && tourBack.isConnected) tourBack.focus();
+}
+
+/* Practice project: ~/Ember-practice with a made-up café dataset and a
+   checklist in the Plan pane; the server ticks what it can see happen. */
+const PRACTICE = {timer: null, done: new Set()};
+const PRACTICE_LAB = {asked: "you asked Claude about the folder",
+                      chart: "a chart arrived in Viz", comment: "your comment is saved"};
+async function startPractice(){
+  closeMenu();
+  const go = await ask("Start the practice project?",
+    "Ember creates a folder called Ember-practice in your home folder, with a small made-up dataset, " +
+    "opens a chat with Claude there and puts a 6-step checklist in the Plan pane.\n\n" +
+    "It takes about 10 minutes and uses a little of your Claude usage, like any chat. " +
+    "The first time, Claude Code asks a few setup questions (text style, sign-in): Enter accepts the defaults. " +
+    "Then it asks whether you trust the folder: answer yes.", "Start");
+  if(!go) return;
+  let r;
+  try{ r = await api("/api/practice/create", {}); }
+  catch(e){ toast("Could not create the practice folder: " + e.message, {kind: "err"}); return; }
+  PRACTICE.done = new Set(r.done);
+  if(maxedCell) toggleMax(maxedCell);
+  setRight(true); planTab("plan");
+  await openTerm("claude", {cwd: r.cwd, label: "claude · practice"});
+  setPlanProject(r.cwd); refreshPlan(true);
+  watchPractice();
+}
+function watchPractice(){
+  clearInterval(PRACTICE.timer);
+  PRACTICE.timer = setInterval(async () => {
+    if(document.hidden) return;
+    let r;
+    try{ r = await api("/api/practice", {}); }catch(e){ return; }
+    const fresh = r.done.filter(k => !PRACTICE.done.has(k));
+    fresh.forEach(k => { PRACTICE.done.add(k); toast("✓ Practice step done: " + PRACTICE_LAB[k], {kind: "ok"}); });
+    if(fresh.length) refreshPlan(true);
+    if(!r.cwd || PRACTICE.done.size >= Object.keys(PRACTICE_LAB).length) clearInterval(PRACTICE.timer);
+  }, 4000);
+}
+
 pollAway(pollEvents, 3000);
 pollEvents();
 refreshUsage(); refreshViz(); refreshPlan(true);
 
 reattachTerms();
+renderWelcome().then(() => {
+  if(SETUP && SETUP.practice){
+    api("/api/practice", {}).then(r => { PRACTICE.done = new Set(r.done); watchPractice(); }).catch(() => {});
+  }
+});
 loadProjects().then(restoreFromHash).catch(e => {
   const isAuth = /token/i.test(e.message);
   $("#tree").innerHTML = `<div class="placeholder" style="padding:30px 16px;text-align:left">

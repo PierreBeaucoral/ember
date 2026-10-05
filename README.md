@@ -470,10 +470,29 @@ git remote set-url origin https://github.com/PierreBeaucoral/ember.git
 You don't need to rename the folder: the launchers look for `ember/` first and then
 fall back to `claude-devtools-lite/`.
 
+## New to Claude Code?
+
+If you know Claude from the app and want it to work on real files, Ember walks you in:
+
+- **A setup checklist at launch**: is Claude Code installed (one-click official
+  installer, run in a terminal you can watch), are you signed in, have you started a chat.
+- **Simple mode**: plain words ("New chat with Claude", "Continue this conversation"),
+  labels on the icon buttons, expert panels hidden, and a **?** next to every term
+  (tokens, 5-hour block, thinking, tool calls…) with a one-sentence explanation.
+  Offered at first launch; switch any time from **? Help** in the status bar.
+- **A one-minute guided tour** of the screen.
+- **A ten-minute practice project**: `~/Ember-practice` with a small made-up dataset and a
+  six-step checklist in the Plan pane (ask Claude about the folder, get a chart, comment
+  on it, read what Claude did, check your usage). Steps tick themselves as Ember sees them
+  happen. It uses a little of your Claude usage, like any chat.
+
+All of it lives under **? Help** (bottom right) and in the ⌘K palette.
+
 ## Usage
 
 | Action | How |
 |---|---|
+| Get help as a beginner | **? Help** in the status bar: tour, practice project, simple mode, glossary |
 | Browse a project | Click it in the sidebar; sessions expand underneath |
 | Inspect a session | Click a session — timeline, chart, and token totals load |
 | Hide noise | Toggle **thinking** / **tool calls** / **system** above the timeline |
@@ -501,8 +520,11 @@ toast appears when a background session finishes something.
 
 ### Making Claude aware of the dashboard
 
-Add this to your `~/.claude/CLAUDE.md` so sessions launched from the terminal pane push
-their visual output to the viz inbox on their own:
+Sessions started from Ember's terminal already know about it: Ember passes the block
+below with `--append-system-prompt`. Add it to your `~/.claude/CLAUDE.md` only if you
+also want sessions started **outside** Ember to use the Viz inbox and plan file; once
+your CLAUDE.md mentions `CLAUDE_DEVTOOLS_UI`, Ember stops appending its own copy, so
+you never pay for it twice.
 
 ```markdown
 ## Ember UI awareness

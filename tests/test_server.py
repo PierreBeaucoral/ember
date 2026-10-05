@@ -635,6 +635,96 @@ def test_terminal_env_carries_login_path(monkeypatch):
         srv._env_cache.clear()
 
 
+@posix_only
+def test_claude_gets_ember_prompt_unless_claude_md_has_it(monkeypatch, tmp_path):
+    """Sessions started from Ember learn about Viz/Plan/comments without the
+    user editing CLAUDE.md, and nobody pays for the block twice."""
+    srv._env_cache["claude"] = "/nonexistent/claude"
+    srv._env_cache["path_raw"] = ["/usr/bin", "/bin"]
+    monkeypatch.setattr(srv, "CLAUDE_ROOT", tmp_path)
+    captured = []
+
+    class FakeTerm:
+        def __init__(self, argv, cwd, env=None, **kw):
+            captured.append(argv)
+            self.id, self.alive = str(len(captured)), True
+
+    monkeypatch.setattr(srv, "PosixTerm", FakeTerm)
+    try:
+        srv.TERMS.clear()
+        srv.start_term("claude", None, prompt="/graphify")
+        srv.start_term("resume", None, session_id="abc")
+        srv.start_term("shell", None)
+        new, resume, shell = captured
+        assert new[1:3] == ["--append-system-prompt", srv.EMBER_PROMPT]
+        assert new[-1] == "/graphify"                 # positional prompt stays last
+        assert resume[1:3] == ["--append-system-prompt", srv.EMBER_PROMPT]
+        assert resume[-2:] == ["--resume", "abc"]
+        assert "--append-system-prompt" not in shell
+        assert '"' not in srv.EMBER_PROMPT            # survives ConPTY quoting
+        (tmp_path / "CLAUDE.md").write_text("When `CLAUDE_DEVTOOLS_UI=1` is set ...")
+        srv.TERMS.clear()
+        srv.start_term("claude", None)
+        assert "--append-system-prompt" not in captured[-1]
+    finally:
+        srv.TERMS.clear()
+        srv._env_cache.clear()
+
+
+def test_setup_status_reports_first_run_needs(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    (home / ".claude" / "projects").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(srv, "CLAUDE_ROOT", home / ".claude")
+    srv._env_cache["claude"] = None
+    srv._env_cache["path_raw"] = ["/nonexistent"]
+    try:
+        st = srv.setup_status(home / ".claude")
+        assert st == {"claude": False, "logged_in": None, "projects": False,
+                      "aware": "prompt", "practice": None}
+        (home / ".claude.json").write_text(json.dumps({"oauthAccount": {"x": 1}}))
+        (home / ".claude" / "projects" / "-Users-x-proj").mkdir()
+        st = srv.setup_status(home / ".claude")
+        assert st["logged_in"] is True and st["projects"] is True
+    finally:
+        srv._env_cache.clear()
+
+
+def test_practice_project_creates_and_ticks(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    root = home / ".claude"
+    (root / "projects").mkdir(parents=True)
+    viz = tmp_path / "viz"
+    viz.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(srv, "VIZ_DIR", viz)
+    st = srv.practice_create()
+    d = home / "Ember-practice"
+    assert st == {"cwd": str(d), "done": []}
+    assert (d / "coffee.csv").read_text().startswith("month,")
+    plan = srv.plan_read(str(d))
+    assert plan["total"] == len(srv.PRACTICE_STEPS) and plan["done"] == 0
+
+    # a user edit survives a second create
+    (d / "coffee.csv").write_text("mine")
+    srv.practice_create()
+    assert (d / "coffee.csv").read_text() == "mine"
+
+    # a transcript for that folder, a figure, a saved comment: all three tick
+    slug = re.sub(r"[^A-Za-z0-9]", "-", str(d))
+    (root / "projects" / slug).mkdir()
+    (root / "projects" / slug / "s.jsonl").write_text("{}\n")
+    (viz / "cups-per-month.png").write_bytes(b"png")
+    (viz / ".review").mkdir()
+    (viz / ".review" / "cups-per-month.png.json").write_text("{}")
+    st = srv.practice_sync(root)
+    assert st["done"] == ["asked", "chart", "comment"]
+    plan = srv.plan_read(str(d))
+    assert plan["done"] == 3
+    assert srv.practice_sync(root)["done"] == st["done"]     # idempotent
+
+
 def test_child_env_scrubs_parent_session_markers():
     """Regression: a dashboard started from inside a Claude Code session leaked
     CLAUDE_CODE_CHILD_SESSION into terminals, which turns transcript saving OFF

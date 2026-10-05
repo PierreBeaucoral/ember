@@ -623,6 +623,17 @@ eq("re-activating the same tab does not reload", app.loaded.length, before);
   await recovered;
   report("unchanged successful scan clears warning", warning.hidden);
 
+  // Beginners' help: every ? button names a glossary entry, and every tour
+  // step points at an element that exists (a renamed id would skip a step)
+  const GLOSS = (0, eval)("(" + slice("const GLOSS = {", "document.addEventListener(\"click\", e => {")
+    .replace("const GLOSS = ", "").trim().replace(/;$/, "") + ")");
+  const glUsed = [...html.matchAll(/data-gl="([a-z]+)"/g)].map(m => m[1]);
+  const glMissing = glUsed.filter(k => !GLOSS[k]);
+  report("every ? button has a glossary entry", glUsed.length > 5 && !glMissing.length, glMissing.join(", "));
+  const tourIds = [...slice("const TOUR = [", "let tourAt").matchAll(/\["#([\w-]+)"/g)].map(m => m[1]);
+  const tourMissing = tourIds.filter(id => !html.includes(`id="${id}"`));
+  report("every tour step targets an existing element", tourIds.length === 7 && !tourMissing.length, tourMissing.join(", "));
+
   console.log(fails ? `\n${fails} failed` : `\nall passed`);
   process.exit(fails ? 1 : 0);
 })();

@@ -1637,6 +1637,105 @@ def plan_create(cwd):
     return plan_read(cwd, str(f))
 
 
+# ---------------------------------------------------------------- practice project
+# A hands-on tutorial for people coming from the Claude app: a folder with a
+# small made-up dataset and a checklist in the Plan pane. Steps Ember can see on
+# disk tick themselves; the others the user ticks, which teaches the pane.
+PRACTICE_MARK = PurePosixPath(".claude", "ember-practice.json")
+PRACTICE_STEPS = (
+    (None, "Tick this box by clicking it: you and Claude share this checklist"),
+    ("asked", "In the terminal below, ask Claude: what is in this folder?"),
+    ("chart", "Ask Claude: make a chart of cups sold per month. It appears in the Viz pane"),
+    ("comment", "In Viz, click 💬 Comment, click the chart, write a change, then Send to Claude"),
+    (None, "In the sidebar, open this conversation and look at each step Claude took"),
+    (None, "Look at the Token use pane: how much of your 5-hour allowance this used"),
+)
+PRACTICE_CSV = """month,espresso,latte,tea
+Jan,412,388,150
+Feb,398,371,162
+Mar,431,402,140
+Apr,455,436,121
+May,470,451,98
+Jun,502,480,77
+Jul,540,515,64
+Aug,533,498,70
+Sep,489,470,101
+Oct,451,433,133
+Nov,420,401,158
+Dec,465,477,190
+"""
+PRACTICE_README = """# Ember practice
+
+Made-up data for learning Ember: cups sold per month in an imaginary café
+(`coffee.csv`). Nothing here is real, and you can delete this folder at any time.
+
+Follow the checklist in Ember's Plan pane. Claude works on the files in this
+folder; it asks before it runs a command or changes a file.
+"""
+PRACTICE_IMAGES = (".png", ".svg", ".jpg", ".jpeg", ".html", ".pdf")
+
+
+def practice_dir():
+    return Path.home() / "Ember-practice"
+
+
+def practice_create():
+    """Write the practice folder; never overwrite a file the user changed."""
+    d = practice_dir()
+    (d / ".claude").mkdir(parents=True, exist_ok=True)
+    plan = "# Ember practice\n\n<!-- Ember ticks some of these for you when it sees them happen. -->\n\n"
+    plan += "".join(f"- [ ] {text}\n" for _, text in PRACTICE_STEPS)
+    for name, body in (("coffee.csv", PRACTICE_CSV), ("README.md", PRACTICE_README),
+                       (str(PurePosixPath(*PLAN_LIVE)), plan),
+                       (str(PRACTICE_MARK), json.dumps({"created": time.time()}))):
+        f = d / name
+        if not f.exists():
+            f.write_text(body, encoding="utf-8")
+    return practice_sync(None)
+
+
+def _newer_files(folders, since, pick):
+    for folder in folders:
+        try:
+            for f in folder.iterdir():
+                if pick(f) and f.stat().st_mtime >= since:
+                    return True
+        except OSError:
+            continue
+    return False
+
+
+def practice_sync(root):
+    """Tick the steps that already happened. Idempotent; returns the state."""
+    d = practice_dir()
+    try:
+        created = json.loads((d / PRACTICE_MARK).read_text(encoding="utf-8"))["created"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return {"cwd": None, "done": []}
+    done = []
+    pdir = project_dir_for_cwd(root, d) if root else None
+    if pdir and any(pdir.glob("*.jsonl")):
+        done.append("asked")
+    figure = lambda f: f.suffix.lower() in PRACTICE_IMAGES and not f.name.startswith(".")
+    if _newer_files((VIZ_DIR, d), created, figure):
+        done.append("chart")
+    if _newer_files((VIZ_DIR / ".review", d / ".review"), created,
+                    lambda f: f.suffix == ".json"):
+        done.append("comment")
+    f = d.joinpath(*PLAN_LIVE)
+    try:
+        text = f.read_text(encoding="utf-8")
+        new = text
+        for key, step in PRACTICE_STEPS:
+            if key in done:
+                new = new.replace(f"- [ ] {step}", f"- [x] {step}")
+        if new != text:
+            f.write_text(new, encoding="utf-8")
+    except OSError:
+        pass
+    return {"cwd": str(d), "done": done}
+
+
 # ---------------------------------------------------------------- figure review
 #
 # Spatial comments on a rendered figure, after paulgp/exhibit-review: click a
@@ -3094,6 +3193,60 @@ def find_claude():
     return found
 
 
+# What sessions started from Ember are told about it, so Viz, Plan and figure
+# comments work without anyone editing ~/.claude/CLAUDE.md. No double quotes:
+# it travels as one argument through POSIX argv and the ConPTY command line.
+EMBER_PROMPT = """This session runs inside Ember, a local workspace around Claude Code \
+(CLAUDE_DEVTOOLS_UI=1). To show the user a visual output (figure, chart, HTML report, \
+table), also write a self-contained file into the folder in $CLAUDE_DEVTOOLS_VIZ_DIR: it \
+appears in Ember's Viz pane within seconds. Prefer .html with inline CSS/JS only (no \
+network), .png or .svg, with descriptive file names.
+
+Keep the working plan in .claude/plan.md (relative to the project folder) as markdown \
+checkboxes (- [ ] step, - [x] done). Ember shows it as a live checklist and writes the \
+user's ticks back, so read it before planning and update it as steps complete.
+
+The user can pin comments on a figure or PDF; they are saved in .review/<file>.json next \
+to it (coordinates are fractions of the image, origin top-left; PDFs add a 1-based page). \
+Before regenerating that file, read its open comments; after applying one, set its \
+status to resolved in that JSON."""
+
+
+def ember_prompt_args():
+    """--append-system-prompt for a claude launched here, unless the user's
+    CLAUDE.md already carries the README's Ember block (no duplicate tax)."""
+    try:
+        own = (CLAUDE_ROOT / "CLAUDE.md").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        own = ""
+    return [] if "CLAUDE_DEVTOOLS_UI" in own else ["--append-system-prompt", EMBER_PROMPT]
+
+
+def logged_in():
+    """True/False when we can tell, None when we can't (keychain-only setups).
+    Not a blocker either way: claude itself walks a new user through login."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return True
+    try:
+        conf = json.loads((CLAUDE_ROOT.parent / ".claude.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return bool(conf.get("oauthAccount")) if isinstance(conf, dict) else None
+
+
+def setup_status(root):
+    """The welcome checklist: what a first-time user still needs."""
+    try:
+        has_projects = any(projects_dir(root).iterdir())
+    except OSError:
+        has_projects = False
+    pr = practice_dir()
+    return {"claude": bool(find_claude()), "logged_in": logged_in(),
+            "projects": has_projects,
+            "aware": "prompt" if ember_prompt_args() else "claude-md",
+            "practice": str(pr) if (pr / PRACTICE_MARK).is_file() else None}
+
+
 def start_term(kind, cwd, session_id=None, prompt=None, cols=100, rows=30):
     if not HAS_TERMINAL:
         raise NotImplementedError(
@@ -3116,6 +3269,7 @@ def start_term(kind, cwd, session_id=None, prompt=None, cols=100, rows=30):
             argv = [claude, "--session-id", str(uuid.uuid4())]
             if prompt:                  # e.g. "/graphify" from the viz pane
                 argv.append(str(prompt)[:2000])
+        argv[1:1] = ember_prompt_args()
     # complete child environment: scrubbed of the parent session's markers (so
     # transcripts get saved), with the login PATH (an app-launched server has a
     # minimal one), telling Claude Code it runs inside this dashboard
@@ -3414,6 +3568,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(body)
                 return
 
+            if p == "/api/setup":
+                self._json(setup_status(self.root))
+                return
+
             if p == "/api/health":
                 with TERMS_LOCK:
                     terms = [{"id": t.id, "label": t.label, "alive": t.alive}
@@ -3646,6 +3804,14 @@ class Handler(BaseHTTPRequestHandler):
                                rows=body.get("rows", 30))
                 self._json({"id": t.id, "label": t.label, "cwd": t.cwd,
                             "argv": t.argv})
+                return
+
+            if p == "/api/practice/create":
+                self._json(practice_create())
+                return
+
+            if p == "/api/practice":
+                self._json(practice_sync(self.root))
                 return
 
             if p == "/api/export":
