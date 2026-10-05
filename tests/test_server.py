@@ -466,6 +466,16 @@ def test_page_csp_pins_the_inline_script(http_server):
     assert "frame-ancestors 'none'" in csp
 
 
+def test_assets_serves_the_tour_picture(http_server):
+    # Home's tour card shows docs/assets/layout.svg; nothing outside that folder
+    with urllib.request.urlopen(http_server + "/assets/layout.svg", timeout=5) as r:
+        assert r.headers["Content-Type"] == "image/svg+xml" and b"<svg" in r.read()
+    for bad in ("/assets/..", "/assets/../server.py", "/assets/nope.svg"):
+        with pytest.raises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(http_server + bad, timeout=5)
+        assert e.value.code == 404, bad
+
+
 def test_page_csp_hash_ignores_crlf():
     # a Git-for-Windows checkout serves index.html with CRLF; the browser hashes
     # the script after turning CRLF into LF, so a raw-bytes hash blocks the page

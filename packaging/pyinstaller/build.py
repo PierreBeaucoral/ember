@@ -44,6 +44,7 @@ def version_file():
 
 def main():
     data = [("index.html", "."), ("addons.json", "."), ("vendor", "vendor"),
+            ("docs/assets/layout.svg", "docs/assets"),          # Home's tour picture
             ("launchers/linux/claude-devtools.svg", ".")]      # --install's icon
     args = [str(REPO / "native" / "window.py"), "--name", "Ember", "--noconfirm",
             "--distpath", str(REPO / "dist"), "--workpath", str(BUILD),

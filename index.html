@@ -104,6 +104,14 @@
   .hthumb span { font-size:11px; padding:4px 6px; background:var(--panel); color:var(--dim); text-align:left;
                  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #homeside .wstep { margin:6px 0 0; }
+  /* the tour on Home: layout.svg with the step's part outlined, the rest dimmed */
+  .htourimg { position:relative; margin-top:10px; border-radius:8px; overflow:hidden; max-width:640px; }
+  .htourimg img { display:block; width:100%; height:auto; }
+  .htourhole { position:absolute; border-radius:6px; pointer-events:none; transition:all .2s ease;
+               box-shadow:0 0 0 3px var(--accent), 0 0 0 9999px rgba(0,0,0,.4); }
+  #htour h2 { font-size:15px; margin-top:12px; }
+  #htour p { font-size:13px; line-height:1.5; max-width:640px; }
+  #htour .tstep { color:var(--dim); font-size:12px; margin-left:auto; }
   @media (max-width: 1100px){
     body.lay-home #home { grid-template-columns:170px minmax(0, 1fr); overflow-y:auto; }
     #homemain, #homeside { overflow:visible; }
@@ -5794,22 +5802,34 @@ async function installClaude(){
 poll(() => { if(SETUP && !(SETUP.claude && SETUP.projects) && $("#wsetup") && $("#wsetup").isConnected) renderWelcome(); }, 5000);
 
 /* Guided tour: a spotlight walks the panes. Steps whose pane is hidden or
-   collapsed are skipped. Esc or Skip ends it; focus goes back where it was. */
+   collapsed are skipped. Esc or Skip ends it; focus goes back where it was.
+   The fourth item is the step's box [x, y, w, h] in docs/assets/layout.svg
+   (1280 × 660), for the tour card on Home; null = not in the picture. */
 const TOUR = [
+  ["#topnav", "The top bar",
+   "Ember goes back to Home. The search box (" + K("⌘K") + ") finds any chat, file or command. Then your usage, Layout (Home, Workspace or All panes) and Resume, which continues the open conversation.",
+   [48, 72, 1184, 44]],
   ["#sidebar", "Your projects and conversations",
-   "Each project is a folder on your computer. Under it are the conversations you had with Claude there. Click one to see exactly what Claude did."],
+   "Each project is a folder on your computer. Under it are the conversations you had with Claude there. Click one to see exactly what Claude did; ＋ New chat starts one.",
+   [48, 128, 220, 488]],
   ["#cell-main", "What Claude did, step by step",
-   "An open conversation shows here: your messages, Claude's answers, and every action it took, such as reading a file or running code. The chat view, with the details the app hides."],
+   "An open conversation shows here: your messages, Claude's answers, and every action it took, such as reading a file or running code. Each turn folds into a one-line summary; click it for the details.",
+   [280, 128, 580, 296]],
   ["#cell-term", "Where you talk to Claude",
-   "Start a chat with ＋ New chat with Claude and pick a folder. Type, press Enter. Claude asks before it runs a command or changes a file."],
+   "The terminal sits under the conversation. Type, press Enter. Claude asks before it runs a command or changes a file.",
+   [280, 436, 580, 180]],
   ["#cell-plan", "Claude's to-do list",
-   "For bigger tasks Claude writes a checklist here and ticks it as it works. You can tick boxes too."],
+   "On the right, Plan: for bigger tasks Claude writes a checklist and ticks it as it works. You can tick boxes too.",
+   [872, 128, 360, 488]],
   ["#cell-viz", "Charts and reports",
-   "Ask Claude for a chart or a report and it opens here. Comment lets you point at what should change. The Files tab browses the folder."],
+   "Output: ask Claude for a chart or a report and it opens here. Comment lets you point at what should change. Files browses the folder.",
+   [872, 128, 360, 488]],
   ["#cell-usage", "How much you have used",
-   "Your Claude plan allows a certain amount of use every 5 hours and every week. This pane shows where you stand."],
+   "Usage: your Claude plan allows a certain amount of use every 5 hours and every week. This tab shows where you stand.",
+   [872, 128, 360, 488]],
   ["#sbHelp", "Help is always here",
-   "Replay this tour, try the practice project, switch simple mode, or read the glossary. " + K("⌘K") + " finds any command."],
+   "? Help at the bottom right replays this tour, starts the practice project, switches simple mode or opens the glossary.",
+   null],
 ];
 let tourAt = -1, tourBack = null;
 function startTour(){
@@ -6020,6 +6040,15 @@ function renderHome(){
         ${projs.map((p, i) => `<option value="${esc(p.slug)}"${i === 0 && c ? " selected" : ""}>${esc(baseName(p.path))}</option>`).join("")}
       </select><button class="btn-primary" data-act="new">＋ New chat</button>
       <button class="btn-quiet" data-act="browse">Browse…</button></div></section>`;
+  // the tour: above the recent chats until it has been taken once, then below
+  const tour = `<section class="hcard" id="htour" aria-labelledby="htourl"><div class="label" id="htourl">Tour of the screen</div>
+    <div class="htourimg"><img src="/assets/layout.svg" alt="The Workspace layout: top bar, sidebar of projects and chats,
+      the conversation above the terminal, the inspector on the right"><i class="htourhole" aria-hidden="true"></i></div>
+    <div aria-live="polite"><h2 id="htourt"></h2><p id="htourx"></p></div>
+    <div class="hact"><button class="btn" data-act="tprev">Back</button><button class="btn" data-act="tnext">Next</button>
+      <button class="btn-quiet" data-w="tour">Show me on the real screen</button><span class="tstep num" id="htourn"></span></div></section>`;
+  const seen = lsGet("ember-tour-seen") === "1";
+  if(!seen) h += tour;
   h += `<section class="hsection" aria-labelledby="hrec"><div class="label" id="hrec">Recent chats</div>`
     + (H.recent.length ? `<table class="htable"><thead><tr><th class="label">Chat</th><th class="label">Project</th>
         <th class="label">When</th><th class="label">Turns</th></tr></thead><tbody>`
@@ -6030,8 +6059,10 @@ function renderHome(){
       + `</tbody></table>`
       : `<div class="hempty">Your chats will be listed here. Start one above, or try the
           <a data-act="practice" role="button" tabindex="0">practice project</a> (10 minutes).</div>`) + `</section>`;
+  if(seen) h += tour;
   main.innerHTML = h;
   wireSetup(main);
+  homeTour();
 
   // right column
   const steps = SETUP ? setupSteps(SETUP) : [], done = steps.filter(x => x.ok).length;
@@ -6056,6 +6087,23 @@ function renderHome(){
   side.innerHTML = r;
   if(H.viz.some(f => /^image\//.test(f.kind))) ensureCookie();
   wireSetup(side);
+}
+// show step hTourAt of TOUR in the Home card; kept across Home's re-renders
+let hTourAt = 0;
+function homeTour(){
+  if(!$("#htour")) return;
+  const [, title, text, box] = TOUR[hTourAt], hole = $("#htour .htourhole");
+  hole.hidden = !box;
+  if(box) Object.assign(hole.style, {left: box[0] / 12.8 + "%", top: box[1] / 6.6 + "%",
+                                     width: box[2] / 12.8 + "%", height: box[3] / 6.6 + "%"});
+  $("#htourt").textContent = title;
+  $("#htourx").textContent = text;
+  $("#htourn").textContent = `${hTourAt + 1} of ${TOUR.length}`;
+  $("#htour [data-act=tprev]").disabled = hTourAt === 0;
+  $("#htour [data-act=tnext]").disabled = hTourAt === TOUR.length - 1;
+  // a button that just went disabled drops focus; hand it to its pair
+  if(document.activeElement && document.activeElement.disabled)
+    $("#htour [data-act=" + (hTourAt ? "tprev" : "tnext") + "]").focus();
 }
 async function openFromHome(slug, id){
   if(state.openProject !== slug) await toggleProject(slug);
@@ -6082,6 +6130,10 @@ $("#homemain").onclick = async ev => {
   }
   else if(act === "browse"){ setRight(true); focusPane("cell-viz"); vizTab("files"); }
   else if(act === "practice") startPractice();
+  else if(act === "tprev" || act === "tnext"){
+    hTourAt = clamp(hTourAt + (act === "tnext" ? 1 : -1), 0, TOUR.length - 1);
+    homeTour();
+  }
 };
 $("#homeside").onclick = ev => {
   const t = ev.target.closest("[data-viz], [data-act]");

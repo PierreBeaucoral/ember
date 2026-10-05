@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.1 (2026-10-05): the tour on Home
+
+- **Tour on Home**: a "Tour of the screen" card walks the eight steps over the
+  1.4 layout picture (docs/assets/layout.svg, now served at /assets/ and bundled
+  in the installers), outlining each part in turn. It sits above Recent chats
+  until the tour has been taken once, then below. "Show me on the real screen"
+  runs the spotlight tour, which gains a first step for the top bar and wording
+  for the inspector tabs.
+
 ## 1.4.0 (2026-10-05): the redesign
 
 A calmer screen, built from three directions: a Home page, a Workspace, and

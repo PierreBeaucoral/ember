@@ -651,7 +651,7 @@ eq("re-activating the same tab does not reload", app.loaded.length, before);
   report("every ? button has a glossary entry", glUsed.length > 5 && !glMissing.length, glMissing.join(", "));
   const tourIds = [...slice("const TOUR = [", "let tourAt").matchAll(/\["#([\w-]+)"/g)].map(m => m[1]);
   const tourMissing = tourIds.filter(id => !html.includes(`id="${id}"`));
-  report("every tour step targets an existing element", tourIds.length === 7 && !tourMissing.length, tourMissing.join(", "));
+  report("every tour step targets an existing element", tourIds.length === 8 && !tourMissing.length, tourMissing.join(", "));
 
   console.log(fails ? `\n${fails} failed` : `\nall passed`);
   process.exit(fails ? 1 : 0);

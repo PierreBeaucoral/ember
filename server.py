@@ -57,7 +57,7 @@ import winconpty  # noqa: E402
 HAS_TERMINAL = HAS_PTY or winconpty.unsupported_reason() is None
 
 
-VERSION = "1.4.0"      # single source: build-app.sh and the HTTP header read it
+VERSION = "1.4.1"      # single source: build-app.sh and the HTTP header read it
 HERE = Path(__file__).resolve().parent
 # Inside Ember.app (Contents/Resources) or a PyInstaller build, the code folder
 # is replaced wholesale on every update: nothing may be written there.
@@ -3503,16 +3503,19 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(body)
                 return
 
-            if p.startswith("/vendor/"):
-                name = p[len("/vendor/"):]
+            # /assets/ = docs/assets (the README's pictures, shown on Home too)
+            if p.startswith(("/vendor/", "/assets/")):
+                pre, name = p[1:].split("/", 1)
                 if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
                     self._err(404, "not found")
                     return
-                f = HERE / "vendor" / name
+                f = HERE / ("vendor" if pre == "vendor" else "docs/assets") / name
                 if not f.is_file():
                     self._err(404, "not found")
                     return
-                if name.endswith(".css"):
+                if name.endswith(".svg"):
+                    ctype = "image/svg+xml"
+                elif name.endswith(".css"):
                     ctype = "text/css"
                 elif name.endswith(".woff2"):
                     ctype = "font/woff2"
