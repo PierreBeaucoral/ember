@@ -156,6 +156,7 @@ eq0("message-only wrapper gets a slash",
     cleanTitle("<command-message>review</command-message>"), "/review");
 eq0("other hyphenated tags are stripped",
     cleanTitle("<system-reminder>x</system-reminder> fix the chart"), "x fix the chart");
+eq0("a pasted block's wrapper tag goes", cleanTitle('<pasted_content id="60bf"> # Plan'), "# Plan");
 eq0("ordinary titles are untouched, even with <b>", cleanTitle("fix <b> in the  table"), "fix <b> in the table");
 eq0("empty title stays empty", cleanTitle(undefined), "");
 report("cleaned title is still escaped where it lands",
@@ -182,6 +183,8 @@ function eq0(name, got, want) { report(name, got === want, `got ${JSON.stringify
     for (const s of ["bg", "panel"])
       if (!t.borderStrong || ratio(t.borderStrong, t[s]) < 3) bad.push(`${n} borderStrong/${s}`);
     if (!t.onErr || ratio(t.onErr, t.err) < 4.5) bad.push(`${n} onErr/err`);
+    // --on-accent (text on primary buttons) is the theme's bg unless it sets onAccent
+    if (ratio(t.onAccent || t.bg, t.accent) < 4.5) bad.push(`${n} onAccent/accent`);
     if (ratio(t.bar, t.bg) < 3) bad.push(`${n} bar/bg ${ratio(t.bar, t.bg).toFixed(2)}`);   // bars sit on --bg
     if (ratio(t.focus || t.accent, t.bg) < 3) bad.push(`${n} focus/bg`);
   }
@@ -203,6 +206,15 @@ function eq0(name, got, want) { report(name, got === want, `got ${JSON.stringify
     .concat(root.includes(`--border-strong: ${gd.borderStrong};`) ? [] : ["border-strong"])
     .concat(root.includes(`--on-err: ${gd.onErr};`) ? [] : ["on-err"]);
   report(":root defaults match the Ember Dark theme", !drift.length, drift.join(", "));
+}
+
+/* Colours come from the theme tokens: a raw #hex is allowed only in the
+   :root defaults (Ember Dark, kept in step above) and the theme tables. */
+{
+  const rest = html.replace(slice(":root {", "color-scheme: dark;"), "")
+                   .replace(slice("const LIGHT_ANSI = {", "const DEFAULT_THEME"), "");
+  const hits = [...rest.matchAll(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b(?![\w-])/g)].map(m => m[0]);
+  report("no hard-coded colours outside the theme tables", !hits.length, hits.join(", "));
 }
 
 /* Rebranding must not replace an existing user's chosen theme. */
@@ -317,7 +329,7 @@ eq("re-activating the same tab does not reload", app.loaded.length, before);
 /* ---------------- turns, context attribution, cache timer ---------------- */
 {
   const T = (0, eval)(slice("/* ---------- turns ----", "/* ---------- end of the pure turn helpers") +
-    ";({isPrompt, groupTurns, turnOf, shortModel, turnInfo, contextIn, visibleContext, firstChange})");
+    ";({isPrompt, groupTurns, turnOf, shortModel, turnInfo, turnSummary, contextIn, visibleContext, firstChange})");
   const E = [
     {kind: "hook", ts: "2026-10-01T10:00:00Z", text: "x"},                                   // 0 preamble
     {kind: "user", ts: "2026-10-01T10:00:01Z", text: "do it", tok: 2},                       // 1 prompt
@@ -349,6 +361,13 @@ eq("re-activating the same tab does not reload", app.loaded.length, before);
               {entry: 0, cat: "system", label: "System prompt", tok: 4000},
               {entry: 7, cat: "system", label: "System prompt", tok: 4100}]};
   const i1 = T.turnInfo(s, turns[1]), i2 = T.turnInfo(s, turns[2]);
+  eq("turn summary in words", T.turnSummary(s, turns[1]), "Ran 1 command");
+  eq("turn summary: unnamed read + agent", T.turnSummary(s, turns[2]), "Read 1 file, started 1 agent");
+  eq("turn summary names the one file", T.turnSummary({entries: [
+    {kind: "tool", name: "Edit", input: {file_path: "/a/b/server.py"}},
+    {kind: "tool", name: "Read", input: {file_path: "/a/x.py"}}, {kind: "tool", name: "Read", input: {file_path: "/a/y.py"}}]},
+    {start: 0, end: 3}), "Read 2 files, edited server.py");
+  eq("turn summary without tools", T.turnSummary({entries: [{kind: "assistant"}]}, {start: 0, end: 1}), "Answered");
   eq("turn counts", [i1.thinking, i1.tools, i1.messages, i1.errors].join(","), "1,1,1,0");
   eq("the last text is the final answer", i1.final, 6);
   eq("a text followed by tools is not an answer", i2.final, -1);

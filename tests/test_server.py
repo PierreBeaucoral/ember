@@ -2177,3 +2177,91 @@ def test_port_guard_kills_stale_server_and_refuses_foreign(tmp_path):
         if stale.poll() is None:
             stale.terminate()
             stale.wait()
+
+
+# ---------------------------------------------------------------- home screen
+
+@pytest.fixture
+def home_root(tmp_path, monkeypatch):
+    """An empty ~/.claude under a fake $HOME, with an empty preview folder."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    monkeypatch.setattr(srv, "VIZ_DIR", tmp_path / "viz")
+    (tmp_path / "viz").mkdir()
+    return tmp_path / ".claude"
+
+
+def _aged(f, age):
+    t = time.time() - age
+    os.utime(f, (t, t))
+
+
+def test_home_on_an_empty_install(home_root):
+    out = srv.home_summary(home_root)
+    assert (out["continue"], out["recent"], out["viz"]) == (None, [], [])
+    (home_root / "projects").mkdir(parents=True)
+    assert srv.home_summary(home_root)["recent"] == []
+
+
+def test_home_lists_newest_sessions_across_projects(home_root):
+    pd = srv.projects_dir(home_root)
+    for i in range(7):                       # alternate two projects, oldest first
+        f = pd / ("-a" if i % 2 else "-b") / f"s{i}.jsonl"
+        write_session(f, [rec_user(f"prompt {i}")])
+        _aged(f, 10_000 - i * 100)
+    out = srv.home_summary(home_root)
+    assert [m["id"] for m in out["recent"]] == ["s6", "s5", "s4", "s3", "s2"]
+    assert [m["slug"] for m in out["recent"][:2]] == ["-b", "-a"]
+    assert out["recent"][0]["path"] == "/Users/x/proj"    # cwd, not the slug
+    assert out["continue"]["id"] == "s6" and out["continue"]["live"] is False
+
+
+def test_home_continue_carries_last_reply_live_flag_and_plan(home_root):
+    proj = home_root.parent / "proj"
+    (proj / ".claude").mkdir(parents=True)
+    (proj / ".claude" / "plan.md").write_text("- [x] a\n- [ ] b\n- [~] c\n")
+    u = rec_user("go")
+    u["cwd"] = str(proj)
+    err = {"type": "assistant", "isApiErrorMessage": True, "error": "rate_limit",
+           "message": {"model": "<synthetic>", "content": [{"type": "text", "text": "limit"}]}}
+    write_session(srv.projects_dir(home_root) / "-p" / "s.jsonl", [
+        u,
+        rec_assistant([{"type": "text", "text": "  first\n\nline  " + "x" * 300}]),
+        rec_assistant([{"type": "text", "text": "side"}], sidechain=True),
+        rec_assistant([{"type": "tool_use", "id": "t", "name": "Bash", "input": {}}]),
+        err,
+    ])
+    c = srv.home_summary(home_root)["continue"]
+    assert c["last_assistant"] == ("first line " + "x" * 300)[:200]
+    assert c["live"] is True and c["api_error"] == "rate_limit"
+    assert c["plan"] == {"done": 1, "total": 3, "file": str(proj / ".claude" / "plan.md")}
+    assert c["path"] == str(proj) and c["user_msgs"] == 1
+
+
+def test_home_endpoint_answers_over_http(http_server):
+    code, body = fetch(http_server + "/api/home", headers={"X-Devtools-Token": "a" * 48})
+    data = json.loads(body)
+    assert code == 200 and set(data) == {"now", "continue", "recent", "viz", "viz_dir"}
+    assert data["continue"]["last_assistant"] == "hi"
+
+
+def test_session_meta_counts_real_prompts_only(tmp_path):
+    f = tmp_path / "p" / "s.jsonl"
+    meta = rec_user("injected")
+    meta["isMeta"] = True
+    summary = rec_user("This session is being continued from a previous conversation…")
+    summary["isCompactSummary"] = True
+    write_session(f, [
+        rec_user("plain string prompt"),
+        rec_user([{"type": "text", "text": "block prompt"}]),
+        rec_user("<command-name>/clear</command-name>"),          # slash command: counts
+        rec_tool_result("tu_1", "out"),                           # tool result: no
+        rec_user([{"type": "text", "text": "<system-reminder>x</system-reminder>"}]),
+        rec_user("<local-command-stdout>cleared</local-command-stdout>"),  # its output: no
+        rec_user([{"type": "text", "text": "<system-reminder>r</system-reminder>"},
+                  {"type": "text", "text": "the real ask after a reminder"}]),    # counts
+        summary,
+        rec_user("side", sidechain=True),
+        meta,
+    ])
+    m = srv.session_meta(f)
+    assert m["prompts"] == 4 and m["user_msgs"] == 9

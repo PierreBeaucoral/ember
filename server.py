@@ -57,7 +57,7 @@ import winconpty  # noqa: E402
 HAS_TERMINAL = HAS_PTY or winconpty.unsupported_reason() is None
 
 
-VERSION = "1.3.0"      # single source: build-app.sh and the HTTP header read it
+VERSION = "1.4.0"      # single source: build-app.sh and the HTTP header read it
 HERE = Path(__file__).resolve().parent
 # Inside Ember.app (Contents/Resources) or a PyInstaller build, the code folder
 # is replaced wholesale on every update: nothing may be written there.
@@ -263,6 +263,7 @@ MAX_TEXT_CHARS = 120_000      # per text/thinking block sent to the UI
 SEARCH_MAX_RESULTS = 300
 LIST_HEAD_BYTES = 512 * 1024  # how much of a big file to scan for list metadata
 LIST_TAIL_BYTES = 256 * 1024
+LIVE_WINDOW = 600             # seconds; a session written this recently is "live" (as in index.html)
 
 _meta_cache = {}              # path -> (mtime, size, meta dict)
 _cache_lock = threading.Lock()
@@ -360,6 +361,7 @@ def session_meta(path):
         "cwd": None,
         "gitBranch": None,
         "user_msgs": 0,
+        "prompts": 0,               # real user turns: not tool results or injected reminders
         "assistant_msgs": 0,
         "has_subagents": (path.parent / path.stem / "subagents").is_dir(),
         "api_error": None,
@@ -384,6 +386,12 @@ def session_meta(path):
             meta["cwd"] = meta["cwd"] or o.get("cwd")
             meta["version"] = meta["version"] or o.get("version")
             meta["gitBranch"] = meta["gitBranch"] or o.get("gitBranch")
+            c = o.get("message", {}).get("content")
+            texts = [c] if isinstance(c, str) else [   # a tool_result-only record has none
+                b.get("text", "") for b in c or [] if isinstance(b, dict) and b.get("type") == "text"]
+            if not o.get("isMeta") and not o.get("isCompactSummary") and any(
+                    not t.lstrip().startswith(("<system-reminder>", "<local-command-")) for t in texts):
+                meta["prompts"] += 1
             if meta["title"] is None and not o.get("isMeta"):
                 txt = block_text(o.get("message", {}).get("content"))
                 if txt and not txt.startswith(UNTITLED_PREFIXES):
@@ -431,14 +439,7 @@ def list_projects(root):
             continue
         newest = max((s.stat().st_mtime for s in sessions), default=d.stat().st_mtime)
         # authoritative cwd from the newest session, not the lossy slug
-        cwd = None
-        for s in sorted(sessions, key=lambda p: p.stat().st_mtime, reverse=True)[:3]:
-            for o in iter_jsonl(s, max_bytes=64 * 1024):
-                if o.get("cwd"):
-                    cwd = o["cwd"]
-                    break
-            if cwd:
-                break
+        cwd = newest_cwd(sessions, 3)
         graph = None
         if cwd:
             g = Path(cwd) / "graphify-out" / "graph.html"
@@ -459,15 +460,80 @@ def list_projects(root):
     return out
 
 
-def project_cwd(root, slug):
-    """Real working directory of a project, read from its newest session."""
-    d = safe_project_path(root, slug)
-    sessions = sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
-    for s in sessions[:5]:
+def newest_cwd(sessions, n):
+    """First cwd recorded in the n newest of these session files."""
+    for s in sorted(sessions, key=lambda p: p.stat().st_mtime, reverse=True)[:n]:
         for o in iter_jsonl(s, max_bytes=64 * 1024):
             if o.get("cwd"):
                 return o["cwd"]
     return None
+
+
+def project_cwd(root, slug):
+    """Real working directory of a project, read from its newest session."""
+    return newest_cwd(safe_project_path(root, slug).glob("*.jsonl"), 5)
+
+
+def last_assistant_text(path):
+    """The last main-thread assistant reply that has text, collapsed and cut to 200 chars."""
+    for ln in reversed(tail_lines(path, LIST_TAIL_BYTES)):
+        try:
+            o = json.loads(ln)
+        except json.JSONDecodeError:
+            continue
+        if o.get("type") != "assistant" or o.get("isSidechain") or o.get("isApiErrorMessage"):
+            continue
+        txt = " ".join(block_text(o.get("message", {}).get("content")).split())
+        if txt:                     # tool_use/thinking-only replies flatten to ""
+            return txt[:200]
+    return ""
+
+
+def home_summary(root, viz_dir=None):
+    """The Home screen: newest sessions across all projects, the one to
+    continue (with its last reply and plan progress), and the newest previews."""
+    now = time.time()
+    files = []
+    if projects_dir(root).is_dir():
+        for f in projects_dir(root).glob("*/*.jsonl"):
+            try:
+                files.append((f.stat().st_mtime, f))
+            except OSError:
+                continue            # removed mid-scan
+    files.sort(key=lambda x: x[0], reverse=True)
+    recent, first = [], None
+    for _, f in files:
+        if len(recent) == 5:
+            break
+        try:
+            m = dict(session_meta(f))   # a copy: session_meta's dict is cached
+        except OSError:
+            continue
+        d = f.parent
+        # same path /api/projects shows; the slug is lossy, so it is the last resort
+        cwd = m["cwd"] or newest_cwd(d.glob("*.jsonl"), 3)
+        m.update(slug=d.name, path=cwd or d.name.replace("-", "/"),
+                 live=m["mtime"] > now - LIVE_WINDOW)
+        recent.append(m)
+        first = first or (f, cwd)
+    cont = None
+    if recent:
+        (f, cwd), plan = first, None
+        if cwd:
+            try:
+                pr = plan_read(cwd)
+                if pr["total"]:
+                    plan = {"done": pr["done"], "total": pr["total"], "file": pr["file"]}
+            except (ValueError, OSError):
+                pass                # cwd outside $HOME or unreadable: no plan
+        cont = {k: recent[0][k] for k in ("slug", "path", "id", "title", "mtime", "live",
+                                          "user_msgs", "model", "api_error")}
+        cont.update(last_assistant=last_assistant_text(f), plan=plan)
+    try:
+        viz, vdir = viz_list(viz_dir)   # the folder the Output tab watches
+    except (ValueError, OSError):
+        viz, vdir = viz_list()
+    return {"now": now, "continue": cont, "recent": recent, "viz": viz[:2], "viz_dir": str(vdir)}
 
 
 # ---------------------------------------------------------------- session parsing
@@ -1473,7 +1539,7 @@ PLAN_HEAD_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 
 PLAN_TEMPLATE = """# Plan
 
-<!-- Ember reads this file into its PLAN pane.
+<!-- Ember reads this file into its Plan pane.
      Keep one task per line as a markdown checkbox; tick them off as you go. -->
 
 Status: DRAFT
@@ -1646,8 +1712,8 @@ PRACTICE_MARK = PurePosixPath(".claude", "ember-practice.json")
 PRACTICE_STEPS = (
     (None, "Tick this box by clicking it: you and Claude share this checklist"),
     ("asked", "In the terminal below, ask Claude: what is in this folder?"),
-    ("chart", "Ask Claude: make a chart of cups sold per month. It appears in the Viz pane"),
-    ("comment", "In Viz, click 💬 Comment, click the chart, write a change, then Send to Claude"),
+    ("chart", "Ask Claude: make a chart of cups sold per month. It appears in the Output pane"),
+    ("comment", "In Output, click Comment, click the chart, write a change, then Send to Claude"),
     (None, "In the sidebar, open this conversation and look at each step Claude took"),
     (None, "Look at the Token use pane: how much of your 5-hour allowance this used"),
 )
@@ -3200,7 +3266,7 @@ def find_claude():
 EMBER_PROMPT = """This session runs inside Ember, a local workspace around Claude Code \
 (CLAUDE_DEVTOOLS_UI=1). To show the user a visual output (figure, chart, HTML report, \
 table), also write a self-contained file into the folder in $CLAUDE_DEVTOOLS_VIZ_DIR: it \
-appears in Ember's Viz pane within seconds. Prefer .html with inline CSS/JS only (no \
+appears in Ember's Output pane within seconds. Prefer .html with inline CSS/JS only (no \
 network), .png or .svg, with descriptive file names.
 
 Keep the working plan in .claude/plan.md (relative to the project folder) as markdown \
@@ -3571,6 +3637,10 @@ class Handler(BaseHTTPRequestHandler):
 
             if p == "/api/setup":
                 self._json(setup_status(self.root))
+                return
+
+            if p == "/api/home":
+                self._json(home_summary(self.root, qs.get("dir", [None])[0]))
                 return
 
             if p == "/api/health":
