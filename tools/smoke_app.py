@@ -51,7 +51,8 @@ def throwaway_home():
 def mark_downloaded(folder):
     """Give every file the "from the internet" mark that Explorer copies onto
     files extracted from a downloaded zip: the build must open its window
-    anyway (native/window.py clears the mark on its own binaries)."""
+    anyway (Ember.exe.config lets .NET load marked DLLs; 1.4.1 cleared the
+    marks instead, which failed in a read-only C:\\Program Files)."""
     for f in Path(folder).rglob("*"):
         if f.is_file():
             with open(str(f) + ":Zone.Identifier", "w") as z:
@@ -83,9 +84,10 @@ def window(target):
     print(out[-3000:])
     assert alive and "no web view" not in out, "the window did not stay up"
     if runtime is not None:
-        assert not os.path.exists(str(runtime) + ":Zone.Identifier"), \
-            "the internet mark is still on Python.Runtime.dll"
-        print("internet mark cleared: ok")
+        # the window must open with the mark still there, as in a read-only install
+        assert os.path.exists(str(runtime) + ":Zone.Identifier"), \
+            "the internet mark is gone from Python.Runtime.dll: the test proves nothing"
+        print("opened despite the internet mark: ok")
     print("window: ok")
     return 0
 

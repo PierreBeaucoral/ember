@@ -60,6 +60,16 @@ def main():
         args += ["--windowed", "--icon", str(REPO / "launchers" / "windows" / "claude-devtools.ico"),
                  "--version-file", str(version_file())]
     PyInstaller.__main__.run(args)
+    if sys.platform == "win32":
+        # Files from a downloaded zip carry Windows' "from the internet" mark,
+        # and .NET Framework refuses marked assemblies (0x80131515): pythonnet's
+        # Python.Runtime.dll failed to load and the window fell back to the
+        # browser. This tells .NET to load them anyway, with no need to strip
+        # the marks, which a read-only install (C:\Program Files) can't do.
+        (REPO / "dist" / "Ember" / "Ember.exe.config").write_text(
+            '<?xml version="1.0" encoding="utf-8"?>\n<configuration>\n  <runtime>\n'
+            '    <loadFromRemoteSources enabled="true"/>\n  </runtime>\n</configuration>\n',
+            encoding="utf-8")
 
 
 if __name__ == "__main__":

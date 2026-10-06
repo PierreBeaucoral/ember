@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.2 (2026-10-06): Windows window from Program Files
+
+- **Windows**: Ember opens its own window again when installed in a folder
+  users can't write to, such as `C:\Program Files`. There, the copy unzipped
+  from a download kept Windows' "from the internet" mark, and .NET refused
+  pythonnet's `Python.Runtime.dll` ("Failed to resolve
+  Python.Runtime.Loader.Initialize"), so Ember fell back to the browser. 1.4.1
+  removed the mark at launch, which needs write access. Now an `Ember.exe.config`
+  next to the exe tells .NET to load the bundle's DLLs anyway, and the release
+  smoke test opens the window with the mark still in place.
+
 ## 1.4.1 (2026-10-05): the tour on Home
 
 - **Tour on Home**: a "Tour of the screen" card walks the eight steps over the
