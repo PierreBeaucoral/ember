@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.3 (2026-10-06): tests
+
+- Removes a Windows unit test for the mark-clearing code that 1.4.2 deleted;
+  the release smoke test, which opens the window with the mark in place,
+  covers that case. The app itself is unchanged from 1.4.2.
+
 ## 1.4.2 (2026-10-06): Windows window from Program Files
 
 - **Windows**: Ember opens its own window again when installed in a folder

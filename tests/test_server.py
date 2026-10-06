@@ -2114,25 +2114,6 @@ def test_window_failure_opens_the_browser_and_keeps_the_reason(tmp_path, monkeyp
     assert "0x80131515" in (tmp_path / "window.log").read_text(encoding="utf-8")
 
 
-@pytest.mark.skipif(os.name != "nt", reason="NTFS alternate data streams")
-def test_window_clears_the_internet_mark_on_its_binaries(tmp_path, monkeypatch):
-    """Explorer marks files unzipped from a download; .NET then refuses the
-    window's DLLs (0x80131515). The frozen app clears the mark on its own."""
-    w = _window_module()
-    (tmp_path / "_internal").mkdir()
-    dll, txt = tmp_path / "_internal" / "Python.Runtime.dll", tmp_path / "notes.txt"
-    for f in (dll, txt):
-        f.write_bytes(b"x")
-        with open(str(f) + ":Zone.Identifier", "w") as z:
-            z.write("[ZoneTransfer]\nZoneId=3\n")
-    monkeypatch.setattr(w, "FROZEN", True)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "Ember.exe"))
-    assert w.unblock_bundle() == 1
-    assert not os.path.exists(str(dll) + ":Zone.Identifier")
-    assert os.path.exists(str(txt) + ":Zone.Identifier")       # only binaries
-    assert dll.read_bytes() == b"x"                            # the file itself stays
-
-
 # ---------------------------------------------------------------- port guard
 
 def _wait_listening(port, proc, timeout=20):

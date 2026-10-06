@@ -57,7 +57,7 @@ import winconpty  # noqa: E402
 HAS_TERMINAL = HAS_PTY or winconpty.unsupported_reason() is None
 
 
-VERSION = "1.4.2"      # single source: build-app.sh and the HTTP header read it
+VERSION = "1.4.3"      # single source: build-app.sh and the HTTP header read it
 HERE = Path(__file__).resolve().parent
 # Inside Ember.app (Contents/Resources) or a PyInstaller build, the code folder
 # is replaced wholesale on every update: nothing may be written there.
