@@ -10,6 +10,7 @@ import json
 import re
 import os
 import socket
+import shutil
 import subprocess
 import sys
 import threading
@@ -17,6 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -692,7 +694,7 @@ def test_setup_status_reports_first_run_needs(monkeypatch, tmp_path):
     try:
         st = srv.setup_status(home / ".claude")
         assert st == {"claude": False, "logged_in": None, "projects": False,
-                      "aware": "prompt", "practice": None}
+                      "aware": "prompt", "practice": None, "retention": None}
         (home / ".claude.json").write_text(json.dumps({"oauthAccount": {"x": 1}}))
         (home / ".claude" / "projects" / "-Users-x-proj").mkdir()
         st = srv.setup_status(home / ".claude")
@@ -1039,7 +1041,7 @@ def test_improve_skips_short_or_missing_transcripts(monkeypatch, tmp_path):
     monkeypatch.delenv("CDL_IMPROVE_RUN", raising=False)
     monkeypatch.delenv("CDL_IMPROVE", raising=False)
     monkeypatch.setattr(srv, "find_claude", lambda: "/bin/false")
-    monkeypatch.setattr(srv, "addon_installed", lambda a: True)
+    monkeypatch.setattr(srv, "addon_installed", lambda a, root=None: True)
     spawned = []
     monkeypatch.setattr(srv.subprocess, "Popen", lambda *a, **k: spawned.append(a))
     short = tmp_path / "s.jsonl"
@@ -1140,6 +1142,7 @@ def test_config_view_skips_a_project_claude_dir_with_nothing_in_it(tmp_path, mon
 
 def test_mcp_servers_come_from_claude_json_not_settings(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    monkeypatch.setattr(srv, "CLAUDE_ROOT", tmp_path / ".claude")
     (tmp_path / ".claude.json").write_text(json.dumps({
         "mcpServers": {"garmin": {"type": "stdio", "command": "x",
                                   "env": {"TOKEN": "sekrit"}}},
@@ -1906,7 +1909,8 @@ def test_event_tee_skips_embers_own_retrospective(tmp_path, monkeypatch):
     assert not (tmp_path / "events.jsonl").exists()
 
 
-def test_mcp_addon_detection(tmp_path):
+def test_mcp_addon_detection(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
     root = tmp_path / ".claude"
     root.mkdir()
     check = {"kind": "mcp", "name": "context7"}
@@ -1917,6 +1921,12 @@ def test_mcp_addon_detection(tmp_path):
     assert not srv.addon_installed(check, root)
     (tmp_path / ".claude.json").write_text(json.dumps({"mcpServers": {"context7": {}}}))
     assert srv.addon_installed(check, root)
+    # a profile (CLAUDE_CONFIG_DIR) keeps its .claude.json inside the folder
+    prof = tmp_path / ".claude-work"
+    prof.mkdir()
+    assert not srv.addon_installed(check, prof)
+    (prof / ".claude.json").write_text(json.dumps({"mcpServers": {"context7": {}}}))
+    assert srv.addon_installed(check, prof)
 
 
 def test_new_addons_have_commands_for_both_platforms():
@@ -2256,3 +2266,655 @@ def test_session_meta_counts_real_prompts_only(tmp_path):
     ])
     m = srv.session_meta(f)
     assert m["prompts"] == 4 and m["user_msgs"] == 9
+
+
+# ---------------------------------------------------------------- 1.5.0: replica fixes
+
+def test_retention_reads_and_raises_cleanup_period(tmp_path):
+    root = tmp_path / ".claude"
+    root.mkdir()
+    assert srv.retention_days(root) is None                    # unset = Claude Code's 30
+    (root / "settings.json").write_text(json.dumps({"model": "opus", "cleanupPeriodDays": 30}))
+    assert srv.retention_days(root) == 30
+    assert srv.retention_set(3650, root) == {"ok": True, "days": 3650}
+    st = json.loads((root / "settings.json").read_text())
+    assert st == {"model": "opus", "cleanupPeriodDays": 3650}  # other keys kept
+    assert json.loads((root / "settings.json.bak-devtools").read_text())["cleanupPeriodDays"] == 30
+    for bad in (0, -1, 36501, "3650", True, 1.5, None):
+        with pytest.raises(ValueError):
+            srv.retention_set(bad, root)
+    (root / "settings.json").write_text("{not json")
+    with pytest.raises(ValueError):
+        srv.retention_set(3650, root)
+    assert (root / "settings.json").read_text() == "{not json"  # left alone
+    fresh = tmp_path / "fresh"
+    srv.retention_set(365, fresh)                               # no settings.json yet
+    assert json.loads((fresh / "settings.json").read_text()) == {"cleanupPeriodDays": 365}
+
+
+def test_chat_option_args_only_pass_known_values():
+    a = srv.chat_option_args({"model": "opus", "effort": "high",
+                              "permission_mode": "plan", "worktree": True})
+    assert a == ["--model", "opus", "--effort", "high", "--permission-mode", "plan", "--worktree"]
+    assert srv.chat_option_args({"worktree": "feat-x"}) == ["--worktree", "feat-x"]
+    assert srv.chat_option_args({"model": "claude-opus-5-5[1m]"}) == ["--model", "claude-opus-5-5[1m]"]
+    # nothing that could become another flag or a shell word gets through
+    assert srv.chat_option_args({"model": "--dangerously-skip-permissions", "effort": "ultra",
+                                 "permission_mode": "yolo", "worktree": "../x",
+                                 "fork": True}) == []
+    assert srv.chat_option_args({"model": "a b"}) == []
+    assert srv.chat_option_args("nope") == []
+    # a resume: fork applies, worktree does not
+    assert srv.chat_option_args({"fork": True, "worktree": True}, resume=True) == ["--fork-session"]
+
+
+def test_start_term_puts_options_and_fork_on_argv(monkeypatch, tmp_path):
+    captured = []
+
+    class Fake:
+        def __init__(self, argv, cwd, cols=100, rows=30, env=None):
+            captured.append((argv, env))
+            self.id, self.alive = "t1", True
+
+    monkeypatch.setattr(srv, "PosixTerm", Fake)
+    monkeypatch.setattr(srv, "WindowsTerm", Fake)
+    monkeypatch.setattr(srv, "HAS_TERMINAL", True)
+    monkeypatch.setattr(srv, "find_claude", lambda: "/bin/claude")
+    monkeypatch.setattr(srv, "ember_prompt_args", lambda: [])
+    srv.TERMS.clear()
+    try:
+        srv.start_term("claude", str(tmp_path), opts={"model": "sonnet", "permission_mode": "acceptEdits"})
+        argv = captured[-1][0]
+        assert argv[0] == "/bin/claude" and argv[1] == "--session-id"
+        assert argv[3:] == ["--model", "sonnet", "--permission-mode", "acceptEdits"]
+        srv.TERMS.clear()
+        srv.start_term("resume", str(tmp_path), "abc", opts={"fork": True})
+        assert captured[-1][0] == ["/bin/claude", "--resume", "abc", "--fork-session"]
+    finally:
+        srv.TERMS.clear()
+
+
+def test_usage_sources_split_writers_and_context(tmp_path, monkeypatch):
+    now = srv.time.time()
+    iso = lambda dt: datetime.fromtimestamp(now - dt, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    proj = tmp_path / "projects" / "-p"
+    write_session(proj / "s1.jsonl", [
+        rec_user("hi", ts=iso(3600)),
+        rec_assistant([{"type": "tool_use", "id": "t1", "name": "mcp__garmin__get_stats", "input": {}},
+                       {"type": "tool_use", "id": "t2", "name": "Read", "input": {"file_path": "/a"}},
+                       {"type": "tool_use", "id": "t3", "name": "Skill", "input": {"skill": "ponytail"}}],
+                      rid="r1", ts=iso(3500)),
+        rec_tool_result("t1", "x" * 4000, ts=iso(3400)),
+        rec_tool_result("t2", "y" * 400, ts=iso(3400)),
+        rec_tool_result("t3", "Launching skill: ponytail", ts=iso(3400)),
+        {"type": "user", "isMeta": True, "timestamp": iso(3300),
+         "message": {"role": "user", "content": [{"type": "text",
+                     "text": "Base directory for this skill: /h/.claude/skills/ponytail\n" + "z" * 8000}]}},
+        rec_assistant([{"type": "text", "text": "ok"}], rid="r2", ts=iso(3200)),
+        rec_assistant([{"type": "text", "text": "old"}], rid="r0", ts=iso(30 * 86400)),  # outside the window
+    ])
+    sub = proj / "s1" / "subagents" / "agent-a1.jsonl"
+    write_session(sub, [rec_assistant([{"type": "text", "text": "x"}], rid="r9", ts=iso(3000),
+                                      usage={"output_tokens": 250}, sidechain=True)])
+    (sub.parent / "agent-a1.meta.json").write_text(json.dumps({"agentType": "Explore"}))
+    u = srv.usage_sources(tmp_path, 7)
+    assert u["writers"] == [{"name": "Subagent: Explore", "output": 250},
+                            {"name": "Your chats", "output": 200}]
+    assert u["output"] == 450
+    ctx = {(c["kind"], c["name"]): c for c in u["context"]}
+    assert ctx[("mcp", "garmin")]["tok"] == 1000 and ctx[("mcp", "garmin")]["calls"] == 1
+    assert ctx[("tool", "Read")]["tok"] == 100
+    assert ctx[("skill", "ponytail")]["tok"] > 2000
+    assert ctx[("skill", "ponytail")]["calls"] == 1
+    assert u["context"][0]["name"] == "ponytail"                 # heaviest first
+
+
+def test_pending_request_is_the_last_unanswered_tool_call(tmp_path):
+    proj = tmp_path / "projects" / "-Users-x-proj"
+    write_session(proj / "s1.jsonl", [
+        rec_user("go"),
+        rec_assistant([{"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/a"}}], rid="r1"),
+        rec_tool_result("t1", "ok"),
+        rec_assistant([{"type": "tool_use", "id": "t2", "name": "Bash",
+                        "input": {"command": "rm -rf build\n  && make", "description": "clean"}}], rid="r2"),
+    ])
+    p = srv.pending_request(tmp_path, "/Users/x/proj", "s1")["pending"]
+    assert p["tool"] == "Bash" and p["brief"] == "rm -rf build && make"
+    assert srv.tool_brief("mcp__x__run", {"code": "a\n  b", "n": 1}) == "a b"   # any text argument
+    assert srv.tool_brief("X", {"n": 1}) == '{"n": 1}'
+    assert len(srv.tool_brief("Bash", {"command": "y" * 999})) == 300
+    write_session(proj / "s2.jsonl", [rec_user("go")])
+    assert srv.pending_request(tmp_path, "/Users/x/proj", "s2") == {"pending": None}
+    assert srv.pending_request(tmp_path, "/nowhere", "s1") == {"pending": None}
+    with pytest.raises(ValueError):
+        srv.pending_request(tmp_path, "/Users/x/proj", "../etc/passwd")
+
+
+def test_parse_unified_numbers_lines_and_reads_statuses():
+    text = """diff --git a/a.py b/a.py
+index 1..2 100644
+--- a/a.py
++++ b/a.py
+@@ -10,3 +10,4 @@ def f():
+ keep
+-old
++new
++more
+ tail
+diff --git a/gone.txt b/gone.txt
+deleted file mode 100644
+--- a/gone.txt
++++ /dev/null
+@@ -1 +0,0 @@
+-bye
+diff --git a/n.md b/n.md
+new file mode 100644
+--- /dev/null
++++ b/n.md
+@@ -0,0 +1 @@
++--- a front-matter line, not a header
+diff --git a/x.png b/x.png
+Binary files a/x.png and b/x.png differ
+"""
+    f = srv.parse_unified(text)
+    assert [x["path"] for x in f] == ["a.py", "gone.txt", "n.md", "x.png"]
+    a = f[0]
+    assert (a["added"], a["removed"], a["status"]) == (2, 1, "modified")
+    rows = [(l["t"], l["old"], l["new"], l["text"]) for l in a["lines"][1:]]
+    assert rows == [(" ", 10, 10, "keep"), ("-", 11, None, "old"), ("+", None, 11, "new"),
+                    ("+", None, 12, "more"), (" ", 12, 13, "tail")]
+    assert f[1]["status"] == "deleted" and f[1]["removed"] == 1
+    assert f[2]["status"] == "added" and f[2]["lines"][1]["text"] == "--- a front-matter line, not a header"
+    assert f[3]["binary"]
+
+
+def test_git_diff_against_head_and_a_branch(tmp_path):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    run = lambda *a: subprocess.run(["git", "-C", str(tmp_path), *a], check=True,
+                                    capture_output=True, text=True)
+    run("init", "-q", "-b", "main")
+    run("config", "user.email", "t@t")
+    run("config", "user.name", "t")
+    (tmp_path / "a.txt").write_text("one\ntwo\n")
+    run("add", ".")
+    run("commit", "-qm", "base")
+    run("checkout", "-qb", "feat")
+    (tmp_path / "a.txt").write_text("one\nTWO\n")
+    run("commit", "-qam", "change")
+    (tmp_path / "new.txt").write_text("fresh\n")              # untracked
+    d = srv.git_diff(str(tmp_path))
+    assert d["git"] and d["current"] == "feat" and set(d["branches"]) == {"main", "feat"}
+    assert [(f["path"], f["status"]) for f in d["files"]] == [("new.txt", "untracked")]
+    d = srv.git_diff(str(tmp_path), "main")
+    assert d["label"] == "since main"
+    assert [f["path"] for f in d["files"]] == ["a.txt", "new.txt"]
+    assert d["files"][0]["added"] == 1 and d["files"][0]["removed"] == 1
+    with pytest.raises(ValueError):
+        srv.git_diff(str(tmp_path), "--output=/tmp/x")          # never reaches git
+    with pytest.raises(FileNotFoundError):
+        srv.git_diff(str(tmp_path / "missing"))
+
+
+def test_profiles_list_switch_and_terminal_env(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.setattr(srv, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(srv, "compute_baseline", lambda root: None)
+    default = tmp_path / ".claude"
+    (default / "projects").mkdir(parents=True)
+    (tmp_path / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "me@a"}}))
+    work = tmp_path / ".claude-work"
+    work.mkdir()
+    (work / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "me@b"}}))
+    (tmp_path / ".claude-empty").mkdir()                        # nothing in it: not a profile
+    monkeypatch.setattr(srv, "CLAUDE_ROOT", default)
+    monkeypatch.setattr(srv.Handler, "root", default)
+    ps = srv.list_profiles()["profiles"]
+    assert [(p["name"], p["email"], p["active"]) for p in ps] == [
+        ("default", "me@a", True), ("work", "me@b", False)]
+    assert "CLAUDE_CONFIG_DIR" not in srv.child_config_env({"CLAUDE_CONFIG_DIR": "/elsewhere"})
+    srv.use_profile(str(work))
+    assert srv.CLAUDE_ROOT == work and srv.Handler.root == work and (work / "projects").is_dir()
+    assert srv.child_config_env({})["CLAUDE_CONFIG_DIR"] == str(work)
+    assert srv.state_read()["profile"] == str(work)
+    with pytest.raises(ValueError):
+        srv.use_profile(str(tmp_path / "anywhere"))
+    with pytest.raises(ValueError):
+        srv.create_profile("../evil")
+    with pytest.raises(ValueError):
+        srv.create_profile("default")
+    srv.create_profile("Client2")
+    assert srv.CLAUDE_ROOT == tmp_path / ".claude-client2"
+    srv.use_profile(str(default))
+
+
+def symlink_or_skip(link, target):
+    """Windows needs Developer Mode or admin rights to create a symlink."""
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("this system does not let tests create symlinks")
+
+
+def test_retention_writes_through_a_symlinked_settings_file(tmp_path):
+    dot = tmp_path / "dotfiles"
+    dot.mkdir()
+    (dot / "settings.json").write_text(json.dumps({"theme": "dark"}))
+    root = tmp_path / ".claude"
+    root.mkdir()
+    symlink_or_skip(root / "settings.json", dot / "settings.json")
+    srv.retention_set(3650, root)
+    assert (root / "settings.json").is_symlink()                # the link survives
+    assert json.loads((dot / "settings.json").read_text()) == {"theme": "dark", "cleanupPeriodDays": 3650}
+
+
+def test_untracked_symlinks_and_secrets_are_listed_not_read(tmp_path):
+    secret = tmp_path / "outside.txt"
+    secret.write_text("private")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".env").write_text("TOKEN=x")
+    (repo / "ok.txt").write_text("hello\n")
+    assert srv.untracked_file(repo, ".env")["skipped"] == "sensitive"
+    symlink_or_skip(repo / "link.txt", secret)
+    assert srv.untracked_file(repo, "link.txt")["skipped"] == "symlink"
+    assert srv.untracked_file(repo, ".env")["skipped"] == "sensitive"
+    assert srv.untracked_file(repo, "link.txt")["lines"] == []
+    ok = srv.untracked_file(repo, "ok.txt")
+    assert "skipped" not in ok and ok["added"] == 1
+
+
+def test_untracked_content_has_a_total_budget(tmp_path, monkeypatch):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    subprocess.run(["git", "-C", str(tmp_path), "init", "-q"], check=True, capture_output=True)
+    for name in ("a.csv", "b.csv", "c.csv"):
+        (tmp_path / name).write_bytes(b"x,y\n" * 10)        # 40 bytes each, on Windows too
+    monkeypatch.setattr(srv, "UNTRACKED_TOTAL_BYTES", 90)
+    files = {f["path"]: f for f in srv.git_diff(str(tmp_path))["files"]}
+    assert files["a.csv"]["added"] == 10 and files["b.csv"]["added"] == 10
+    assert files["c.csv"]["skipped"] == "budget" and files["c.csv"]["lines"] == []
+    big = tmp_path / "big.csv"
+    big.write_text("z" * (srv.UNTRACKED_MAX_BYTES + 1))
+    assert srv.untracked_file(tmp_path, "big.csv")["skipped"] == "size"
+
+
+def test_worktree_is_dropped_outside_a_git_repository(monkeypatch, tmp_path):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    captured = []
+
+    class Fake:
+        def __init__(self, argv, cwd, cols=100, rows=30, env=None):
+            captured.append(argv)
+            self.id, self.alive = "t%d" % len(captured), True
+
+    monkeypatch.setattr(srv, "PosixTerm", Fake)
+    monkeypatch.setattr(srv, "WindowsTerm", Fake)
+    monkeypatch.setattr(srv, "HAS_TERMINAL", True)
+    monkeypatch.setattr(srv, "find_claude", lambda: "/bin/claude")
+    monkeypatch.setattr(srv, "ember_prompt_args", lambda: [])
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True, capture_output=True)
+    srv.TERMS.clear()
+    try:
+        t = srv.start_term("claude", str(plain), opts={"worktree": True, "model": "opus"})
+        assert "--worktree" not in captured[-1] and "--model" in captured[-1]
+        assert t.notes and "not a git repository" in t.notes[0]
+        t = srv.start_term("claude", str(repo), opts={"worktree": True})
+        assert "--worktree" in captured[-1] and t.notes == []
+    finally:
+        srv.TERMS.clear()
+
+
+# ---------------------------------------------------------------- 1.5.0: referee round 1
+
+def test_parse_unified_odd_names_and_line_breaks():
+    text = (
+        'diff --git "a/caf\\303\\251.txt" "b/caf\\303\\251.txt"\n'
+        '--- "a/caf\\303\\251.txt"\n+++ "b/caf\\303\\251.txt"\n'
+        "@@ -1,3 +1,3 @@\n t\x0c wo\n-three\n+THREE\n \n"
+        "diff --git a/with space.txt b/with space.txt\n"
+        "--- a/with space.txt\t\n+++ b/with space.txt\t\n@@ -1 +1 @@\n-a\r\n+b\r\n"
+        "diff --git a/img.png b/img.png\ndeleted file mode 100644\n"
+        "Binary files a/img.png and /dev/null differ\n"
+        "diff --git a/run.sh b/run.sh\nold mode 100644\nnew mode 100755\n"
+        "diff --git a/x.js b/x.js\n--- a/x.js\n+++ b/x.js\n@@ -1,2 +1,2 @@\n-a\u2028b\n+a\u2028c\n tail\n"
+    )
+    f = {x["path"]: x for x in srv.parse_unified(text)}
+    assert set(f) == {"café.txt", "with space.txt", "img.png", "run.sh", "x.js"}
+    rows = [(l["t"], l["old"], l["new"]) for l in f["café.txt"]["lines"][1:]]
+    # the form feed stays inside its line, the blank context line keeps its number
+    assert rows == [(" ", 1, 1), ("-", 2, None), ("+", None, 2), (" ", 3, 3)]
+    assert f["with space.txt"]["lines"][2]["text"] == "b"          # \r stripped, no TAB in the name
+    assert f["img.png"]["status"] == "deleted" and f["img.png"]["binary"]
+    assert f["run.sh"]["status"] == "mode changed"
+    assert [(l["t"], l["new"]) for l in f["x.js"]["lines"][1:]] == [("-", None), ("+", 1), (" ", 2)]
+
+
+def _repo(tmp_path):
+    run = lambda *a: subprocess.run(["git", "-C", str(tmp_path), *a], check=True,
+                                    capture_output=True)
+    run("init", "-q", "-b", "main")
+    run("config", "user.email", "t@t")
+    run("config", "user.name", "t")
+    return run
+
+
+def test_git_diff_real_repo_names_numbers_and_user_config(tmp_path):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    run = _repo(tmp_path)
+    (tmp_path / "café.txt").write_bytes(b"one\n\ntwo\nthree\n")
+    (tmp_path / "with space.txt").write_bytes(b"a\n")
+    (tmp_path / "HEAD").write_bytes(b"a file named HEAD\n")
+    run("add", ".")
+    run("commit", "-qm", "base")
+    # the user's own diff settings must not change names or numbers
+    run("config", "diff.mnemonicPrefix", "true")
+    run("config", "diff.suppressBlankEmpty", "true")
+    (tmp_path / "café.txt").write_bytes(b"one\n\ntwo\nTHREE\n")
+    (tmp_path / "with space.txt").write_bytes(b"b\n")
+    (tmp_path / "naïve-new.txt").write_bytes(b"x\xe2\x80\xa8y\nz\n")   # U+2028 inside line 1
+    d = srv.git_diff(str(tmp_path))
+    f = {x["path"]: x for x in d["files"]}
+    assert set(f) == {"café.txt", "with space.txt", "naïve-new.txt"}   # a file named HEAD is no obstacle
+    plus = [l for l in f["café.txt"]["lines"] if l["t"] == "+"]
+    assert plus[0]["new"] == 4 and plus[0]["text"] == "THREE"
+    assert [l["new"] for l in f["naïve-new.txt"]["lines"] if l["t"] == "+"] == [1, 2]
+
+
+def test_git_diff_does_not_run_repository_filters(tmp_path):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    run = _repo(tmp_path)
+    marker = tmp_path / "MARKER"
+    (tmp_path / "f.txt").write_bytes(b"a\n")
+    run("add", ".")
+    run("commit", "-qm", "base")
+    run("config", "filter.probe.clean", f"{sys.executable} -c \"open(r'{marker}','w')\"")
+    run("config", "filter.probe.required", "true")
+    (tmp_path / ".gitattributes").write_bytes(b"*.txt filter=probe\n")
+    (tmp_path / "f.txt").write_bytes(b"b\n")
+    srv.git_diff(str(tmp_path))
+    assert not marker.exists()
+
+
+def test_git_failures_are_reported_not_shown_as_no_changes(tmp_path, monkeypatch):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _repo(repo)
+    outside = tmp_path / "plain"
+    outside.mkdir()
+    if subprocess.run(["git", "-C", str(outside), "rev-parse"], capture_output=True).returncode == 0:
+        pytest.skip("the temp folder sits inside a git repository")
+    # any locale (git speaks French on some machines): still "not a repository"
+    monkeypatch.setenv("LANG", "fr_FR.UTF-8")
+    assert srv.git_diff(str(outside)) == {"git": False, "files": []}
+    with pytest.raises(ValueError, match="git"):
+        srv.git_review(repo, ["diff", "no-such-revision", "--"])
+    if os.name != "nt":                  # a git that hangs: the timeout says so
+        slow = tmp_path / "slowgit"
+        slow.write_text("#!/bin/sh\nsleep 5\n")
+        slow.chmod(0o755)
+        monkeypatch.setattr(srv.shutil, "which", lambda *a, **k: str(slow))
+        monkeypatch.setattr(srv, "GIT_REVIEW_TIMEOUT", 0.3)
+        with pytest.raises(ValueError, match="longer than"):
+            srv.git_review(repo, ["log"])
+
+
+def test_review_allowed_home_or_known_project(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path / "home"))
+    (tmp_path / "home" / "repo").mkdir(parents=True)
+    (tmp_path / "data" / "proj").mkdir(parents=True)
+    monkeypatch.setattr(srv, "list_projects", lambda root: [{"path": str(tmp_path / "data" / "proj")}])
+    assert srv.review_allowed(tmp_path, str(tmp_path / "home" / "repo"))
+    assert srv.review_allowed(tmp_path, str(tmp_path / "data" / "proj"))
+    assert not srv.review_allowed(tmp_path, str(tmp_path / "data"))
+
+
+def test_pending_request_is_the_first_open_call_of_the_newest_message(tmp_path):
+    proj = tmp_path / "projects" / "-Users-x-proj"
+    msg = lambda blocks, mid: dict(rec_assistant(blocks, rid=mid), message=dict(
+        rec_assistant(blocks)["message"], id=mid))
+    write_session(proj / "s1.jsonl", [
+        rec_user("go"),
+        msg([{"type": "tool_use", "id": "old", "name": "Agent", "input": {"description": "explore"}}], "m1"),
+        msg([{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "rm -rf dist"}}], "m2"),
+        msg([{"type": "tool_use", "id": "t2", "name": "Bash", "input": {"command": "npm test"}}], "m2"),
+    ])
+    p = srv.pending_request(tmp_path, "/Users/x/proj", "s1")["pending"]
+    assert p["brief"] == "rm -rf dist" and p["open"] == 2 and "msg" not in p
+
+
+def test_terminals_keep_their_profile_after_a_switch(tmp_path, monkeypatch):
+    a, b = tmp_path / "a", tmp_path / "b"
+    for root in (a, b):
+        (root / "projects" / "-w").mkdir(parents=True)
+    write_session(a / "projects" / "-w" / "s1.jsonl", [rec_user("x")])
+    monkeypatch.setattr(srv, "CLAUDE_ROOT", b)                  # the profile on screen now
+    assert srv.session_transcript("/w", 0, "s1") is None
+    assert srv.session_transcript("/w", 0, "s1", root=str(a)).name == "s1.jsonl"
+    assert srv.child_config_env({}, root=b)["CLAUDE_CONFIG_DIR"] == str(b)
+
+
+def test_baseline_is_per_profile(tmp_path, monkeypatch):
+    monkeypatch.setattr(srv, "STATE_FILE", tmp_path / "state.json")
+    a, b = tmp_path / "a", tmp_path / "b"
+    for root, out in ((a, 900), (b, 100)):
+        write_session(root / "projects" / "-p" / "s.jsonl", [rec_assistant(
+            [{"type": "text", "text": "x"}], usage={"output_tokens": out})])
+    monkeypatch.setattr(srv, "CLAUDE_ROOT", b)
+    srv.compute_baseline(a)                      # a scan of the old profile ends after the switch
+    assert "baseline_max" not in srv.state_read()
+    srv.state_write({"baseline_max": 900, "baseline_p90": 900, "baseline_root": str(a)})
+    srv.compute_baseline(b)
+    st = srv.state_read()
+    assert st["baseline_max"] == 100 and st["baseline_root"] == str(b)
+
+
+def test_official_limits_only_from_the_profile_on_screen(tmp_path, monkeypatch):
+    monkeypatch.setattr(srv, "APP_DIR", tmp_path)
+    (tmp_path / "status").mkdir()
+    a, b = tmp_path / ".claude", tmp_path / ".claude-work"
+    (tmp_path / "status" / "x.json").write_text(json.dumps({
+        "session_id": "x", "transcript_path": str(b / "projects" / "p" / "x.jsonl"),
+        "rate_limits": {"five_hour": {"used_percentage": 50}}}))
+    monkeypatch.setattr(srv, "CLAUDE_ROOT", a)
+    assert srv.official_limits() is None                      # .claude-work is not .claude
+    monkeypatch.setattr(srv, "CLAUDE_ROOT", b)
+    assert srv.official_limits()["five_hour"]["used_percentage"] == 50
+
+
+def test_retention_keeps_formatting_mode_and_zero(tmp_path):
+    root = tmp_path / ".claude"
+    root.mkdir()
+    text = '{\n  "env": {"NOTE": "é"},\n  "model": "opus"\n}\n'
+    (root / "settings.json").write_text(text, encoding="utf-8")
+    if os.name != "nt":
+        os.chmod(root / "settings.json", 0o600)
+    srv.retention_set(3650, root)
+    out = (root / "settings.json").read_text(encoding="utf-8")
+    assert out == '{\n  "cleanupPeriodDays": 3650,\n  "env": {"NOTE": "é"},\n  "model": "opus"\n}\n'
+    if os.name != "nt":
+        assert (root / "settings.json").stat().st_mode & 0o777 == 0o600
+        assert (root / "settings.json.bak-devtools").stat().st_mode & 0o777 == 0o600
+    srv.retention_set(30, root)
+    assert '"cleanupPeriodDays": 30,' in (root / "settings.json").read_text(encoding="utf-8")
+    (root / "settings.json").write_text('{"cleanupPeriodDays": 0}')
+    assert srv.retention_days(root) == 0                       # not reported as unset
+
+
+def test_backup_sits_beside_a_symlinked_settings_file(tmp_path):
+    dot = tmp_path / "dotfiles"
+    dot.mkdir()
+    (dot / "settings.json").write_text("{}")
+    root = tmp_path / ".claude"
+    root.mkdir()
+    symlink_or_skip(root / "settings.json", dot / "settings.json")
+    srv.retention_set(365, root)
+    assert (root / "settings.json.bak-devtools").is_file()
+    assert not (dot / "settings.json.bak-devtools").exists()
+
+
+def test_prompts_for_cmd_shims_and_bare_worktree(monkeypatch, tmp_path):
+    p = srv.shim_safe_prompt(r"C:\Users\x\AppData\Roaming\npm\claude.cmd", 'fix "a" & 50% of %PATH%')
+    assert '"' not in p and "%" not in p
+    assert len(srv.shim_safe_prompt("claude.cmd", "x" * 9000)) <= 8000
+    assert srv.shim_safe_prompt("/usr/bin/claude", 'say "hi" 50%') == 'say "hi" 50%'
+    captured = []
+
+    class Fake:
+        def __init__(self, argv, cwd, cols=100, rows=30, env=None):
+            captured.append(argv)
+            self.id, self.alive = "t%d" % len(captured), True
+
+    monkeypatch.setattr(srv, "PosixTerm", Fake)
+    monkeypatch.setattr(srv, "WindowsTerm", Fake)
+    monkeypatch.setattr(srv, "HAS_TERMINAL", True)
+    monkeypatch.setattr(srv, "find_claude", lambda: "/bin/claude")
+    monkeypatch.setattr(srv, "ember_prompt_args", lambda: [])
+    srv.TERMS.clear()
+    try:
+        srv.start_term("claude", str(tmp_path), prompt="review this", opts={"worktree": True})
+        assert "--worktree" not in captured[-1] and captured[-1][-1] == "review this"
+    finally:
+        srv.TERMS.clear()
+
+
+def test_profiles_need_a_claude_code_folder(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    (tmp_path / ".claude").mkdir()
+    other = tmp_path / ".claude-science"
+    other.mkdir()
+    (other / "settings.json").write_text("{}")               # another tool's folder
+    used = tmp_path / ".claude-local"
+    used.mkdir()
+    (used / ".claude.json").write_text("{}")
+    names = [d.name for d in srv.profile_dirs()]
+    assert ".claude-local" in names and ".claude-science" not in names
+
+
+def test_new_routes_over_http(http_server):
+    H = {"X-Devtools-Token": "a" * 48}
+    code, body = fetch(http_server + "/api/profiles", headers=H)
+    assert code == 200 and "profiles" in json.loads(body)
+    code, _ = fetch(http_server + "/api/usage/sources?days=7", headers=H)
+    assert code == 200
+    code, _ = fetch(http_server + "/api/pending?cwd=/x&session=../../etc", headers=H)
+    assert code == 404
+    code, body = fetch(http_server + "/api/gitdiff?cwd=" + urllib.parse.quote("/"), headers=H)
+    assert code == 403
+    code, _ = fetch(http_server + "/api/retention", method="POST",
+                    headers=dict(H, **{"Content-Type": "application/json"}), body=b'{"days": "forever"}')
+    assert code == 409
+
+
+# ---------------------------------------------------------------- 1.5.0: referee round 2
+
+def test_unborn_repository_reviews_the_working_tree(tmp_path):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    run = _repo(tmp_path)
+    (tmp_path / "f.txt").write_bytes(b"a\nb\n")
+    run("add", "f.txt")
+    (tmp_path / "f.txt").write_bytes(b"x\na\nb\n")             # staged copy differs from disk
+    f = {x["path"]: x for x in srv.git_diff(str(tmp_path))["files"]}
+    assert [(l["new"], l["text"]) for l in f["f.txt"]["lines"] if l["t"] == "+"] == [(1, "x"), (2, "a"), (3, "b")]
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="macOS and Windows refuse non-UTF-8 names")
+def test_latin1_untracked_name_keeps_the_review_working(tmp_path):
+    if not shutil.which("git"):
+        pytest.skip("git not installed")
+    _repo(tmp_path)
+    with open(os.path.join(os.fsencode(str(tmp_path)), b"donn\xe9es.csv"), "wb") as fh:
+        fh.write(b"a,b\n")
+    d = srv.git_diff(str(tmp_path))
+    json.dumps(d, ensure_ascii=False).encode("utf-8")       # what _json does: must not raise
+    assert any(x["path"].startswith("donn") and x["added"] == 1 for x in d["files"])
+
+
+def test_retention_keeps_crlf_and_a_byte_exact_backup(tmp_path):
+    root = tmp_path / ".claude"
+    root.mkdir()
+    raw = b'{\r\n  "model": "opus"\r\n}\r\n'
+    (root / "settings.json").write_bytes(raw)
+    srv.retention_set(3650, root)
+    assert (root / "settings.json").read_bytes() == b'{\r\n  "cleanupPeriodDays": 3650,\r\n  "model": "opus"\r\n}\r\n'
+    assert (root / "settings.json.bak-devtools").read_bytes() == raw
+
+
+def test_usage_shows_only_this_profiles_baseline(tmp_path, monkeypatch):
+    monkeypatch.setattr(srv, "STATE_FILE", tmp_path / "state.json")
+    (tmp_path / "projects").mkdir()
+    srv.state_write({"baseline_max": 9, "baseline_p90": 9, "baseline_blocks": 3, "baseline_root": "/elsewhere"})
+    assert srv.usage_summary(tmp_path)["baseline"] is None
+    srv.state_write({"baseline_root": str(tmp_path)})
+    assert srv.usage_summary(tmp_path)["baseline"]["p90"] == 9
+
+
+def test_every_git_call_is_offline_and_skips_submodule_diffs(monkeypatch, tmp_path):
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen["cmd"], seen["env"] = cmd, kw.get("env") or {}
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(srv.subprocess, "run", fake_run)
+    srv.git_out(tmp_path, "status")
+    cmd = " ".join(seen["cmd"])
+    assert "protocol.allow=never" in cmd and "diff.submodule=short" in cmd and "core.fsmonitor=false" in cmd
+    assert seen["env"].get("GIT_NO_LAZY_FETCH") == "1"
+    assert "protocol.allow=never" in " ".join(srv.GIT_REVIEW_CONFIG)
+
+
+def test_git_errors_name_the_fatal_line(tmp_path, monkeypatch):
+    if os.name == "nt":
+        pytest.skip("POSIX shell stand-in")
+    fake = tmp_path / "fakegit"
+    fake.write_text("#!/bin/sh\necho 'fatal: detected dubious ownership in repository' >&2\n"
+                    "echo 'To add an exception, run: git config --global --add safe.directory x' >&2\nexit 128\n")
+    fake.chmod(0o755)
+    monkeypatch.setattr(srv.shutil, "which", lambda *a, **k: str(fake))
+    with pytest.raises(ValueError, match="dubious ownership"):
+        srv.git_review(tmp_path, ["diff"])
+
+
+def test_cmd_shim_command_line_has_no_newlines(monkeypatch, tmp_path):
+    captured = []
+
+    class Fake:
+        def __init__(self, argv, cwd, cols=100, rows=30, env=None):
+            captured.append(argv)
+            self.id, self.alive = "t1", True
+
+    monkeypatch.setattr(srv, "PosixTerm", Fake)
+    monkeypatch.setattr(srv, "WindowsTerm", Fake)
+    monkeypatch.setattr(srv, "HAS_TERMINAL", True)
+    monkeypatch.setattr(srv, "find_claude", lambda: r"C:\npm\claude.cmd")
+    monkeypatch.setattr(srv, "ember_prompt_args", lambda: ["--append-system-prompt", 'line one\n\nsay "x" 5%'])
+    srv.TERMS.clear()
+    try:
+        srv.start_term("claude", str(tmp_path), prompt="fix\nit")
+        argv = captured[-1]
+        assert not any("\n" in a or '"' in a or "%" in a for a in argv[1:])
+        assert argv[-1] == "fix it" and "--append-system-prompt" in argv
+    finally:
+        srv.TERMS.clear()
+
+
+def test_explicit_claude_config_dir_for_the_default_passes_through(monkeypatch, tmp_path):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    (tmp_path / ".claude").mkdir()
+    monkeypatch.setattr(srv, "LAUNCH_CONFIG_DIR", str(tmp_path / ".claude"))
+    assert srv.child_config_env({}, root=tmp_path / ".claude")["CLAUDE_CONFIG_DIR"] == str(tmp_path / ".claude")
+    monkeypatch.setattr(srv, "LAUNCH_CONFIG_DIR", None)
+    assert "CLAUDE_CONFIG_DIR" not in srv.child_config_env({"CLAUDE_CONFIG_DIR": "x"}, root=tmp_path / ".claude")

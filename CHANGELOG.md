@@ -1,5 +1,62 @@
 # Changelog
 
+## 1.5.0 (2026-10-09): what Claude Code users ask for
+
+Eight changes picked from a feature map of the Claude Desktop app and 309 public
+issues and comments about Claude Code (quality_reports/replica/).
+
+- **Keep your chats**: Claude Code deletes conversations older than 30 days unless
+  `cleanupPeriodDays` says otherwise, and Ember can only show what is still on
+  disk. A setup step says so and, with one click, sets it to 10 years: only that
+  key changes, after a copy of settings.json is saved (a symlinked settings.json
+  is written through, so a dotfiles link survives).
+- **Review changes**: the project's working tree in git against HEAD, or against
+  where it left any local branch, with new files included. Click a line, or move
+  with ↑ ↓ and press Enter, to comment on it; **Send to Claude** types every
+  comment, as one line, into the Claude tab (you press Enter). From the session
+  header (**Changes**), the end-of-session card and the palette. Read-only: the
+  repository's own diff drivers, textconv and fsmonitor are switched off;
+  untracked symlinks and secret-looking files are listed but not read, and new
+  files stop being read past 2 MB in total (data folders). Names with accents or
+  spaces, binary deletions, mode changes and the user's own diff settings keep
+  paths and line numbers exact; the repository's own git filters are switched off
+  too, git never goes to the network (no lazy fetch) and submodules are summarised,
+  not diffed; a git failure (dubious ownership, a 20 s timeout) is shown, not taken
+  for "no changes". The session-end card's file count gets the same protections.
+- **Needs you**: with the Live activity add-on, sessions waiting on a permission
+  prompt appear above the projects with what they ask (read from the transcript;
+  the hook still records metadata only), then the ones where it is your turn, for
+  an hour. Click to go to the terminal or open the conversation. Background
+  subagents and parallel tools no longer flip the state. **Allow once** answers a
+  permission prompt only in the Ember tab started with that session and when the
+  hook and the transcript name the same call, and it is the only open call of
+  that tool; never on a question, a plan approval or a subagent's prompt. Ember
+  never types a prompt of its own into a terminal showing a permission prompt.
+  The *Live activity* hook now also records `PermissionDenied` (reinstall it from
+  Add-ons) so a denied prompt leaves the list.
+- **New chat options**: model, effort, permission mode and a git worktree for every
+  new chat (Home, the New chat menu, the palette), checked against the CLI's own
+  choices. A folder that is not a git repository starts without the worktree, and
+  says so; tasks Ember starts for a file (figure feedback, a review) never get one.
+  **Fork** (the ▾ next to Resume, or the palette) continues a conversation as a new
+  one (`--fork-session`).
+- **Account profiles**: Ember lists `~/.claude` and every `~/.claude-<name>` folder
+  as an account, switches between them from **Account** in the sidebar, and starts
+  terminals with `CLAUDE_CONFIG_DIR` set to the one on screen. **New account
+  profile** creates the folder and opens a terminal to sign in. Ember started with
+  `CLAUDE_CONFIG_DIR` shows that folder; official limits and the usage baseline
+  only come from the profile on screen, and running terminals keep the account
+  they started with.
+- **Compactions you can see**: a marker above every turn where the context was
+  compacted, and a *compactions* jump chip (key **c**). Everything before it stays
+  readable.
+- **Where the week went**: in the Usage tab, output by who wrote it (your chats, each
+  kind of subagent) and an estimate of what each MCP server, skill and tool put into
+  the context window over 7 days.
+- **Open edits with their diff** (View menu): edit rows open on their own and lead
+  with the diff, the raw input folded below. A Write that creates a file shows its
+  content as added lines.
+
 ## 1.4.3 (2026-10-06): tests
 
 - Removes a Windows unit test for the mark-clearing code that 1.4.2 deleted;

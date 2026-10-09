@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/PierreBeaucoral/ember/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/PierreBeaucoral/ember/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Version 1.4.0" src="https://img.shields.io/badge/version-1.4.0-dd876d">
+  <img alt="Version 1.5.0" src="https://img.shields.io/badge/version-1.5.0-dd876d">
   <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-3776ab?logo=python&logoColor=white">
   <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-2ea44f">
   <img alt="macOS | Linux | Windows" src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey">
@@ -71,6 +71,7 @@ join the eight classic editor themes.
 | 📊 **Know your budget** | 5-hour block, 7-day usage, P90 limit estimate, per-model breakdown |
 | 🧩 **Know your context tax** | What every agent, skill, rule and MCP server in `~/.claude` costs per turn |
 | 🖼️ **See the output** | Figures Claude writes to `$CLAUDE_DEVTOOLS_VIZ_DIR` render within 5 s |
+| 📝 **Review what changed** | The git diff since HEAD or a branch; comment on a line, send the comments to Claude |
 
 ## Why
 
@@ -116,12 +117,17 @@ into any session in an embedded terminal.
 - **Prompt cache timer**: the session header counts down how long the prompt cache stays
   warm (5 min or 1 h, read from the transcript) and warns when the next prompt will
   re-write the whole context to cache
-- **Real diffs** for `Edit`/`Write` calls, rendered from the recorded patch hunks
+- **Real diffs** for `Edit`/`Write` calls, rendered from the recorded patch hunks; a
+  Write that creates a file shows its content as added lines. **View → Open edits with
+  their diff** opens every edit row on its own, diff first, raw input folded below
+- **Compactions you can see**: a marker above each turn where the context was compacted
+  ("From now on Claude works from a summary of everything above"), while every earlier
+  turn stays readable here, unlike in the terminal
 - **Context-window chart**: one bar per API request, stacked into cache read, cache
   write and uncached input, with automatic **compaction detection** (red bars where the
   context dropped sharply). **Click a bar to jump to that turn** in the timeline
 - Token totals per session, deduplicated by request ID. **Jump to** chips for errors,
-  agents and skills (and the keys **e**, **a**, **s**; **j**/**k** for turns) jump to the next
+  agents, skills and compactions (and the keys **e**, **a**, **s**, **c**; **j**/**k** for turns) jump to the next
   one; the per-tool counts sit in the Context panel, where each chip jumps to the next call
   of that tool. Each turn has a **link** you can paste to reopen the session at that turn
 - The sidebar shows each project's folder name, a live dot and its chat count, and each
@@ -141,6 +147,30 @@ into any session in an embedded terminal.
   A **memory check** lists files missing from the `MEMORY.md` index, files without
   name/description/type front matter, and links to memories not written yet
 - Big transcripts (20 MB+, thousands of entries) load lazily and stay responsive
+- **Keep your chats**: Claude Code deletes conversations older than 30 days unless
+  `cleanupPeriodDays` says otherwise, silently, each time it starts. The setup checklist
+  says so and sets it to 10 years in one click: only that key changes, after a copy of
+  settings.json is saved (a symlinked settings.json is written through)
+
+**Review changes**
+- **Changes** in the session header (also on the end-of-session card and in the palette)
+  shows the project's working tree in git: everything uncommitted, new files included, or
+  everything since it left a local branch. A file list with +/− counts, the diff with old and
+  new line numbers
+- **Click a line to comment on it**, or move with ↑ ↓ (j/k) and press Enter; ⌘↵ adds the
+  comment, Esc cancels, ← and → move between the file list and the diff. **Send to Claude**
+  types every comment, `file:line [code] comment`, as one line into a Claude tab in that
+  folder (you press Enter); with none open, it starts Claude there with the review as its
+  first message. Tasks Ember starts this way never bypass permissions
+- Read-only: only `git rev-parse`, `branch`, `merge-base`, `config`, `diff` and `ls-files`
+  run, with the repository's own diff drivers, textconv, filters (`filter.*` in its
+  `.git/config`) and fsmonitor switched off; your global ones, git-lfs for instance, keep
+  working. Untracked symlinks and files whose names suggest secrets are listed, not read, and
+  new files stop being read once they add up to 2 MB (an untracked data folder lists its
+  files without loading them). Names with accents or spaces and your own diff settings
+  (`noprefix`, `mnemonicPrefix`, `suppressBlankEmpty`) keep paths and line numbers exact
+- For folders under your home folder, or the folder of a project Claude Code worked in. When
+  git fails (a "dubious ownership" drive, a diff over 20 s) the dialog says why
 
 **Token usage**
 - The **Usage** pane leads with one sentence ("11% of your 5-hour limit") over its bar and
@@ -155,11 +185,21 @@ into any session in an embedded terminal.
 - Without it, a limit bar compares the current block with the **P90 of your own
   historical blocks** (the [Claude-Code-Usage-Monitor](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor)
   approach) — a measured estimate, not an official limit
+- **Where the week went**: output over 7 days by who wrote it (your chats, each kind of
+  subagent), and what each MCP server, skill and built-in tool put into the context window
+  (estimated at ~4 characters a token; that context is paid again on every later request
+  until a compaction). Claude Code's own `/usage` has the official breakdown
 
 **Embedded terminal**
 - Real PTY streamed to [xterm.js](https://xtermjs.org/): full TUI, colors, resizing
 - Launch `claude` in any project's directory, or **resume any session** you're viewing
-  (`claude --resume <id>`) with one click
+  (`claude --resume <id>`) with one click. **Fork** (the ▾ next to Resume, or the palette)
+  starts a new conversation from where one left off (`--fork-session`), leaving the
+  original as it was
+- **Options for new chats** (Home, the top of the New chat menu, or the palette): model,
+  effort, permission mode and an own git worktree, remembered and checked against the CLI's
+  own choices. In a folder that is not a git repository the chat starts without a worktree
+  and Ember says so; tasks Ember starts for a file (figure feedback, a review) never get one
 - Up to 6 tabs. Quitting closes sessions **gracefully** (SIGHUP on POSIX,
   `CTRL_CLOSE_EVENT` on Windows) so Claude Code's `SessionEnd` hooks run before exit
 - Terminal tabs **survive a page reload**: the page re-attaches to running shells and
@@ -242,6 +282,37 @@ into any session in an embedded terminal.
   since Ember only writes down facts
 - **Resume** and **Open** sit beside it as quiet links, and **Retrospective** once the
   `/improve` report lands
+
+**Needs you**
+- With the *Live activity* add-on, sessions **waiting on a permission prompt** appear above
+  the projects with what they ask ("Bash: rm -rf build"), read from the session's own
+  transcript, so the hook keeps recording metadata only. Then the sessions where it is
+  **your turn**, for an hour. Click one to go to its terminal, or to open the conversation
+  when it runs elsewhere. Subagents working in the background after Claude's turn, and other
+  tools finishing while a prompt waits, do not change what the row says
+- **Allow once** answers the prompt (it presses 1) only when Ember is sure what is being
+  asked: the Ember tab was started with that very session, and the hook and the transcript
+  name the same call. It is never offered on a question (AskUserQuestion), a plan approval or
+  a subagent's prompt ("a subagent needs permission": answer it in the terminal), nor while
+  two calls of the same tool are open. After you answer in the terminal itself, the row stays
+  until that tool finishes, you deny it (with the Live activity hook reinstalled for 1.5), or
+  the turn ends; a subagent's row until the turn ends
+- Ember never types a prompt of its own (figure feedback, a review) into a terminal that is
+  showing a permission prompt: a digit there would answer it
+
+**Account profiles**
+- Claude Code keeps one account per config folder: `~/.claude`, or any other through
+  `CLAUDE_CONFIG_DIR`. Ember lists `~/.claude` and every `~/.claude-<name>` folder, with
+  the account's e-mail, under **Account** at the bottom of the sidebar (shown once there
+  are two)
+- Switching shows that profile's chats, usage, config and plans, and new terminals start
+  with `CLAUDE_CONFIG_DIR` pointing at it; terminals already open keep their account.
+  **New account profile** creates `~/.claude-<name>` and opens a terminal to sign in
+- Ember started with `CLAUDE_CONFIG_DIR` set shows that folder. The *Live limits* figures
+  only come from sessions of the profile on screen. A terminal keeps the account it started
+  with, end-of-session card and retrospective included. Add-ons install into `~/.claude`, so
+  in another profile the Add-ons pane lists them as missing (Claude Code there does not load
+  them either), and the retrospective runs only where `/improve` is installed
 
 **Notifications (Alerts)**
 - Off by default. Turned on with **Alerts** at the bottom of the sidebar, Ember tells you through your OS when a session **waits for
@@ -581,10 +652,17 @@ or rebuilding a PDF, read its open comments; after applying one, set its `status
 
 The dashboard can spawn shells, so it is built to be safe on a shared machine:
 
-- Binds to **127.0.0.1** only. It **never modifies your transcripts, settings or
-  memory**. It writes in exactly five places: its own state file, the plan checkbox you
-  click (see below), `~/.claude/improve-reports/` when a retrospective runs, and, only
-  when you click, a session-log entry and an export
+- Binds to **127.0.0.1** only. It **never modifies your transcripts or memory**, and
+  changes one Claude Code setting, only when you click **Keep them for 10 years**:
+  `cleanupPeriodDays`, after saving a copy of settings.json. Otherwise it writes its own
+  state file, the plan checkbox you click (see below), `~/.claude/improve-reports/` when a
+  retrospective runs, and, only when you click, a session-log entry, an export, figure
+  comments (`.review/`) and a new account profile folder (`~/.claude-<name>`)
+- **Account switches** accept only folders Ember listed itself (`~/.claude`,
+  `~/.claude-<name>`, the `CLAUDE_CONFIG_DIR` it started with), and profile names are
+  letters, digits, `-` and `_`. **New-chat options** reach the CLI only as values from its
+  own lists (a model name is checked against a strict pattern). **Review changes** runs
+  read-only git with the repository's own diff drivers, textconv and fsmonitor switched off
 - **Session-log writes** go only to `session_logs/<date>.md` in the project of a Claude
   terminal this server ran: the page names the terminal, never a path. **Exports** go
   only to `~/Downloads`, under a sanitised file name; the page supplies the name and the

@@ -43,12 +43,14 @@ INNER = APP_DIR / "statusline_inner.json"      # the statusline we wrap
 EVENTS_MAX = 5_000_000
 GUARDS = APP_DIR / "guards.jsonl"
 GUARDS_MAX = 1_000_000
-SETTINGS = Path(os.environ.get("CLAUDE_ROOT", Path.home() / ".claude")) / "settings.json"
+# the profile a terminal belongs to (Ember sets CLAUDE_CONFIG_DIR for one)
+SETTINGS = Path(os.environ.get("CLAUDE_ROOT") or os.environ.get("CLAUDE_CONFIG_DIR")
+                or Path.home() / ".claude") / "settings.json"
 MARK = "devtools_hooks.py"
 
 # events worth a line; the rest would only add noise
 EVENT_NAMES = ("SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse",
-               "PostToolUse", "PostToolUseFailure", "PermissionRequest",
+               "PostToolUse", "PostToolUseFailure", "PermissionRequest", "PermissionDenied",
                "Notification", "SubagentStart", "SubagentStop", "PreCompact",
                "PostCompact", "Stop", "StopFailure")
 # metadata only: tool_input / tool_response / prompt are deliberately absent
@@ -57,6 +59,8 @@ KEEP = ("hook_event_name", "session_id", "cwd", "tool_name", "agent_type",
 
 
 def _atomic_write(path, text):
+    if path.is_symlink():       # a dotfiles link: write its target, keep the link
+        path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(text, encoding="utf-8")

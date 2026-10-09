@@ -7,7 +7,8 @@ and project memory) and serves a single-page dashboard on localhost.
 
 Zero dependencies: Python 3.9+ standard library only.
 Reads ~/.claude; writes only its own state, a plan checkbox you click, ~/.claude/improve-reports/,
-and on a click a session_logs/ entry or an export in ~/Downloads.
+and on a click: a session_logs/ entry, an export in ~/Downloads, figure comments (.review/),
+cleanupPeriodDays in settings.json (Keep your chats), a new ~/.claude-<name> profile folder.
 
 Usage:
     python3 server.py [--port 3456] [--root ~/.claude]
@@ -57,13 +58,16 @@ import winconpty  # noqa: E402
 HAS_TERMINAL = HAS_PTY or winconpty.unsupported_reason() is None
 
 
-VERSION = "1.4.3"      # single source: build-app.sh and the HTTP header read it
+VERSION = "1.5.0"      # single source: build-app.sh and the HTTP header read it
 HERE = Path(__file__).resolve().parent
 # Inside Ember.app (Contents/Resources) or a PyInstaller build, the code folder
 # is replaced wholesale on every update: nothing may be written there.
 BUNDLED = (bool(getattr(sys, "frozen", False))
            or ".app/Contents/Resources" in HERE.as_posix())
-CLAUDE_ROOT = Path(os.environ.get("CLAUDE_ROOT", str(Path.home() / ".claude")))
+# CLAUDE_CONFIG_DIR is where Claude Code itself keeps everything when set, so
+# it is also what Ember shows (CLAUDE_ROOT, Ember's own override, wins)
+CLAUDE_ROOT = Path(os.environ.get("CLAUDE_ROOT") or os.environ.get("CLAUDE_CONFIG_DIR")
+                   or str(Path.home() / ".claude")).expanduser()
 
 # --- private data dir ------------------------------------------------------
 # Token and state live OUTSIDE the source folder: the source folder is a git
@@ -794,6 +798,8 @@ def parse_session(path, include_sidechain=False):
                     if isinstance(tur, dict) and "structuredPatch" in tur:
                         entry["patch"] = tur.get("structuredPatch")
                         entry["file_path"] = tur.get("filePath")
+                        if tur.get("type") in ("create", "update"):
+                            entry["write_type"] = tur["type"]   # a Write that made the file
                     res = summarize_tool_result(entry["name"], tur, b.get("content"))
                     entry["result"] = truncate(res, MAX_RESULT_CHARS)
                     entry["is_error"] = bool(b.get("is_error"))
@@ -984,19 +990,28 @@ def official_limits():
     """Newest statusline snapshot (tools/devtools_hooks.py statusline), if
     fresh: Claude Code's own 5-hour / 7-day usage %, reset times, and the
     context % and cost of that session. None → the P90 estimate stands."""
-    best = None
+    fresh = []
     try:
         for f in (APP_DIR / "status").glob("*.json"):
             m = f.stat().st_mtime
-            if time.time() - m < STATUS_TTL and (best is None or m > best[0]):
-                best = (m, f)
+            if time.time() - m < STATUS_TTL:
+                fresh.append((m, f))
     except OSError:
         return None
-    if not best:
-        return None
-    try:
-        d = json.loads(best[1].read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    best = d = None
+    root = str(Path(CLAUDE_ROOT).resolve())
+    for m, f in sorted(fresh, reverse=True):
+        try:
+            cand = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        # another profile's session reports another account's limits
+        tp = cand.get("transcript_path") if isinstance(cand, dict) else None
+        if isinstance(tp, str) and tp and not str(Path(tp).resolve()).startswith(root + os.sep):
+            continue
+        best, d = (m, f), cand
+        break
+    if not best or not isinstance(d, dict):
         return None
     rl = d.get("rate_limits") or {}
     cw = d.get("context_window") or {}
@@ -1240,12 +1255,16 @@ def compute_baseline(root):
     totals = sorted(b[2] for b in blocks_from_records(recs) if b[2] > 0)
     if not totals:
         return
+    if str(root) != str(CLAUDE_ROOT):
+        return                           # the profile changed during the scan: not this one's
     p90 = totals[max(0, int(len(totals) * 0.9) - 1)]
     prev = state_read()
+    if prev.get("baseline_root", str(root)) != str(root):
+        prev = {}                        # another account's history: no ratchet from it
     state_write({"baseline_max": max(totals[-1], prev.get("baseline_max", 0)),
                  "baseline_p90": max(p90, prev.get("baseline_p90", 0)),
                  "baseline_blocks": len(totals),
-                 "baseline_at": time.time()})
+                 "baseline_at": time.time(), "baseline_root": str(root)})
 
 
 def usage_summary(root):
@@ -1298,7 +1317,8 @@ def usage_summary(root):
         "week_by_model": wmodel,
         "hourly": hourly,
         "baseline": {"max": st.get("baseline_max"), "p90": st.get("baseline_p90"),
-                     "blocks": st.get("baseline_blocks")} if st.get("baseline_max") else None,
+                     "blocks": st.get("baseline_blocks")}
+        if st.get("baseline_max") and st.get("baseline_root") == str(root) else None,
         "generated": now,
     }
 
@@ -1333,6 +1353,102 @@ def usage_history(root, days=90):
             "projects": sorted(({"slug": k, "output": v} for k, v in per_proj.items()),
                                key=lambda x: -x["output"])[:15],
             "by_model": per_model}
+
+
+_sources_cache = {}             # path -> (mtime, size, (outs, adds))
+
+
+def _tool_source(name, inp):
+    """Who a tool call belongs to, for the breakdown: an MCP server, a skill,
+    or the built-in tool itself."""
+    if name.startswith("mcp__"):
+        return "mcp", name.split("__")[1] or name
+    if name == "Skill" and isinstance(inp, dict) and inp.get("skill"):
+        return "skill", str(inp["skill"])[:60]
+    return "tool", name
+
+
+def file_sources(path):
+    """One pass over a transcript: output records [(epoch, tokens)] (deduped
+    by request) and context records [(epoch, kind, name, chars)] for what tool
+    results and skill bodies put into the context window."""
+    st = path.stat()
+    key = str(path)
+    with _cache_lock:
+        hit = _sources_cache.get(key)
+        if hit and hit[0] == st.st_mtime and hit[1] == st.st_size:
+            return hit[2]
+    outs, adds, seen, calls = [], [], set(), {}
+    for o in iter_jsonl(path):
+        ep = _ts_epoch(o.get("timestamp"))
+        if ep is None:
+            continue
+        msg = o.get("message") or {}
+        content = msg.get("content")
+        if o.get("type") == "assistant":
+            rid, u = o.get("requestId"), msg.get("usage")
+            if rid and u and rid not in seen and not o.get("isApiErrorMessage"):
+                seen.add(rid)
+                outs.append((ep, u.get("output_tokens", 0)))
+            for b in content if isinstance(content, list) else []:
+                if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("id"):
+                    calls[b["id"]] = _tool_source(str(b.get("name") or "?"), b.get("input"))
+        elif o.get("type") == "user":
+            if isinstance(content, str):
+                if o.get("isMeta") and content.startswith("Base directory for this skill:"):
+                    path_ = content.split("\n", 1)[0].split(":", 1)[1].strip().rstrip("/\\")
+                    adds.append((ep, "skill", re.split(r"[\\/]", path_)[-1][:60], len(content)))
+                continue
+            for b in content if isinstance(content, list) else []:
+                if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("tool_use_id") in calls:
+                    kind, name = calls.pop(b["tool_use_id"])
+                    if kind != "skill":     # the skill's body arrives next, as its own record
+                        adds.append((ep, kind, name, len(block_text(b.get("content")))))
+                elif isinstance(b, dict) and b.get("type") == "text" and o.get("isMeta") \
+                        and str(b.get("text", "")).startswith("Base directory for this skill:"):
+                    t = b["text"]
+                    path_ = t.split("\n", 1)[0].split(":", 1)[1].strip().rstrip("/\\")
+                    adds.append((ep, "skill", re.split(r"[\\/]", path_)[-1][:60], len(t)))
+    data = (outs, adds)
+    with _cache_lock:
+        _sources_cache[key] = (st.st_mtime, st.st_size, data)
+    return data
+
+
+def usage_sources(root, days=7):
+    """Where the last `days` days went. Output tokens by who wrote them (your
+    chats, or each kind of subagent), and an ESTIMATE (~4 chars a token) of
+    what MCP servers, skills and built-in tools added to the context window.
+    Claude Code's own /usage breakdown is the official one; this is the same
+    question answered from the transcripts on this machine."""
+    days = max(1, min(90, int(days)))
+    cutoff = time.time() - days * 86400
+    pdir = projects_dir(root)
+    writers, adds = {}, {}
+    for f in pdir.rglob("*.jsonl"):
+        try:
+            if f.stat().st_mtime < cutoff:
+                continue
+            outs, ctx = file_sources(f)
+        except OSError:
+            continue
+        who = "Your chats"
+        if f.parent.name == "subagents":
+            who = "Subagent: " + (agent_stats(f).get("type") or "agent")
+        n = sum(o for ep, o in outs if ep >= cutoff)
+        if n:
+            writers[who] = writers.get(who, 0) + n
+        for ep, kind, name, chars in ctx:
+            if ep < cutoff:
+                continue
+            a = adds.setdefault((kind, name), {"kind": kind, "name": name, "calls": 0, "tok": 0})
+            a["calls"] += 1
+            a["tok"] += est_tok(chars)
+    total = sum(writers.values())
+    return {"days": days, "output": total,
+            "writers": sorted(({"name": k, "output": v} for k, v in writers.items()),
+                              key=lambda x: -x["output"]),
+            "context": sorted(adds.values(), key=lambda x: -x["tok"])[:25]}
 
 
 # ---------------------------------------------------------------- viz inbox
@@ -2096,7 +2212,8 @@ def mcp_servers(root, scope=None):
                 out[name] = str(spec.get("type") or "stdio")
 
     try:
-        conf = json.loads((Path.home() / ".claude.json").read_text())
+        # a project's servers sit in the active profile's file, not in project/.claude
+        conf = json.loads(claude_json_path(root if scope is None else None).read_text())
     except (OSError, ValueError):
         conf = {}
     if scope is None:                       # the global ~/.claude inventory
@@ -2277,7 +2394,7 @@ def addon_installed(check, root=None, plugins=None):
                    for cmd in [str(h.get("command", ""))])
     if kind == "mcp":           # `claude mcp add` writes ~/.claude.json (next to ~/.claude)
         try:
-            conf = json.loads((root.parent / ".claude.json").read_text(encoding="utf-8"))
+            conf = json.loads(claude_json_path(root).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return False
         scopes = [conf.get("mcpServers")] + [p.get("mcpServers") for p in
@@ -2484,7 +2601,7 @@ def improve_stamp_write(slug):
         pass
 
 
-def spawn_improve(cwd, transcript):
+def spawn_improve(cwd, transcript, root=None):
     """Kick off a /improve retrospective for a just-closed session, detached.
 
     Read-only by construction (Read/Grep/Glob only), rate-limited, and skipped
@@ -2494,7 +2611,7 @@ def spawn_improve(cwd, transcript):
         return None
     # without the command, `claude -p "/improve …"` would burn a request on
     # an unknown slash command every time a session closes
-    if not (addon_installed({"kind": "command", "name": "improve"})
+    if not (addon_installed({"kind": "command", "name": "improve"}, root)
             or (Path(cwd) / ".claude" / "commands" / "improve.md").is_file()):
         return None
     claude = find_claude()
@@ -2512,7 +2629,7 @@ def spawn_improve(cwd, transcript):
     d.mkdir(parents=True, exist_ok=True)
     out = d / (time.strftime("%Y-%m-%d_%H%M") + ".md")
     prompt = IMPROVE_PROMPT.format(transcript=transcript, cwd=cwd)
-    env = child_environment(extra={"CDL_IMPROVE_RUN": "1", "PATH": login_path()})
+    env = child_config_env(child_environment(extra={"CDL_IMPROVE_RUN": "1", "PATH": login_path()}), root)
     header = (f"# Retrospective — {Path(cwd).name}\n\n"
               f"*{time.strftime('%Y-%m-%d %H:%M')} · session "
               f"`{transcript.stem}` · read-only run started by "
@@ -2580,8 +2697,12 @@ def git_out(cwd, *args):
         return None
     kw = {"creationflags": 0x08000000} if os.name == "nt" else {}   # CREATE_NO_WINDOW
     try:
-        r = subprocess.run([git, "-C", str(cwd), *args], capture_output=True,
-                           text=True, timeout=5, stdin=subprocess.DEVNULL, **kw)
+        # core.fsmonitor in a repo's own .git/config would run a command on
+        # every diff/status: off, since these run in any folder Claude worked in
+        r = subprocess.run([git, *GIT_SAFE_CONFIG, "-C", str(cwd), *args], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace",
+                           timeout=10, stdin=subprocess.DEVNULL,
+                           env=dict(os.environ, GIT_NO_LAZY_FETCH="1"), **kw)
     except (OSError, subprocess.SubprocessError):
         return None
     return r.stdout if r.returncode == 0 else None
@@ -2593,14 +2714,16 @@ def session_snapshot(cwd, resume=None):
         plan0 = plan_read(cwd)["done"]
     except Exception:
         plan0 = None
-    return {"started": time.time(), "head": head, "plan_done": plan0, "resume": resume}
+    return {"started": time.time(), "head": head, "plan_done": plan0, "resume": resume,
+            "root": str(CLAUDE_ROOT)}   # a profile switch later must not move this session
 
 
-def session_transcript(cwd, since, resume=None):
+def session_transcript(cwd, since, resume=None, root=None):
     """The transcript this terminal wrote. A resumed session names its own;
     a new one is the newest file CREATED since the tab opened (so another
-    session running in the same project is not mistaken for it)."""
-    d = project_dir_for_cwd(CLAUDE_ROOT, cwd)
+    session running in the same project is not mistaken for it). `root`: the
+    profile the terminal started in."""
+    d = project_dir_for_cwd(root or CLAUDE_ROOT, cwd)
     if d is None:
         return None
     if resume:
@@ -2640,7 +2763,7 @@ def session_summary(cwd, snap, ended=None):
     out = {"cwd": cwd, "project": Path(cwd).name, "started": snap["started"],
            "ended": ended, "session_id": None, "title": None, "tokens": None,
            "cost_usd": None, "tools": 0, "git": None, "plan": None}
-    f = session_transcript(cwd, snap["started"], snap.get("resume"))
+    f = session_transcript(cwd, snap["started"], snap.get("resume"), snap.get("root"))
     if f:
         try:
             d = parse_session(f)
@@ -2656,7 +2779,8 @@ def session_summary(cwd, snap, ended=None):
     if snap.get("head"):
         # everything since the start: commits made in the session + uncommitted work
         files = []
-        for line in (git_out(cwd, "diff", "--numstat", snap["head"]) or "").splitlines()[:200]:
+        for line in (git_out(cwd, *git_review_filters(cwd), "diff", "--numstat", "--no-ext-diff",
+                             "--no-textconv", snap["head"], "--") or "").splitlines()[:200]:
             parts = line.split("\t", 2)
             if len(parts) == 3:
                 files.append({"path": parts[2], "added": parts[0], "removed": parts[1]})
@@ -2751,6 +2875,389 @@ def append_session_log(tid):
 # only saves it, always into ~/Downloads (the macOS app's WKWebView has no
 # blob downloads). The page picks nothing but a file name.
 
+# --- what a waiting session is asking -----------------------------------------
+# The Live activity hook records metadata only, never tool inputs. What a
+# session waits on is already in its own transcript: the last tool call with
+# no result yet. Read from the tail, so a 100 MB transcript costs nothing.
+PENDING_TAIL = 256 * 1024
+
+
+def tool_brief(name, inp):
+    """One line saying what a tool call wants to do."""
+    inp = inp if isinstance(inp, dict) else {}
+    known = [inp.get(k) for k in ("command", "file_path", "notebook_path", "url", "pattern",
+                                  "query", "skill", "description", "prompt")]
+    # then any text argument (an MCP tool's), before falling back to JSON
+    for v in known + list(inp.values()):
+        if isinstance(v, str) and v.strip():
+            v = " ".join(v.split())
+            return v if len(v) <= 300 else v[:299] + "…"
+    v = json.dumps(inp, ensure_ascii=False) if inp else ""
+    return v if len(v) <= 300 else v[:299] + "…"
+
+
+def pending_request(root, cwd, session_id):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(session_id or "")):
+        raise ValueError("bad session id")
+    d = project_dir_for_cwd(root, cwd) if cwd else None
+    f = d / f"{session_id}.jsonl" if d else None
+    if f is None or not f.is_file():
+        return {"pending": None}
+    calls, done, order = {}, set(), []
+    for line in tail_lines(f, PENDING_TAIL):
+        try:
+            o = json.loads(line)
+        except ValueError:
+            continue
+        msg = o.get("message") or {}
+        content = msg.get("content")
+        for b in content if isinstance(content, list) else []:
+            if not isinstance(b, dict):
+                continue
+            if b.get("type") == "tool_use" and b.get("id"):
+                # one assistant message streams as several records: its id groups them
+                calls[b["id"]] = {"tool": b.get("name") or "?", "msg": msg.get("id") or o.get("uuid"),
+                                  "brief": tool_brief(b.get("name"), b.get("input")),
+                                  "ts": o.get("timestamp")}
+                order.append(b["id"])
+            elif b.get("type") == "tool_result":
+                done.add(b.get("tool_use_id"))
+    open_ = [calls[k] for k in order if k not in done]
+    if not open_:
+        return {"pending": None}
+    # Claude Code asks about the calls of its newest message in order: the
+    # first still open is the one on screen
+    newest = [c for c in open_ if c["msg"] == open_[-1]["msg"]]
+    first = dict(newest[0], open=len(newest))
+    first.pop("msg", None)
+    return {"pending": first}
+
+
+# --- review changes: the working tree against a base ---------------------------
+DIFF_MAX_BYTES = 2 * 1024 * 1024
+DIFF_MAX_FILES = 300
+UNTRACKED_MAX_BYTES = 200 * 1024
+# research repos keep data folders untracked: past this much new-file content,
+# the rest are listed without being read
+UNTRACKED_TOTAL_BYTES = 2 * 1024 * 1024
+GIT_REVIEW_TIMEOUT = 20
+HUNK_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+# names exactly as on disk (no octal escapes), a/ b/ whatever the user's
+# diff.noprefix / mnemonicPrefix, and blank context lines kept: the line
+# numbers below count them
+# protocol.allow=never + GIT_NO_LAZY_FETCH: a promisor remote in the repo's
+# config cannot make a diff fetch (and run its core.sshCommand); submodules
+# are summarised, not diffed (their own filters would run)
+GIT_SAFE_CONFIG = ("-c", "core.fsmonitor=false", "-c", "protocol.allow=never",
+                   "-c", "diff.submodule=short")
+GIT_REVIEW_CONFIG = GIT_SAFE_CONFIG + ("-c", "core.quotePath=false",
+                                       "-c", "diff.noprefix=false", "-c", "diff.mnemonicPrefix=false",
+                                       "-c", "diff.suppressBlankEmpty=false")
+
+
+def git_unquote(name):
+    """git's C-style quoting of odd file names ("a\tb", "\303\251")."""
+    if not (len(name) >= 2 and name[0] == '"' and name[-1] == '"'):
+        return name
+    out, i, body = bytearray(), 0, name[1:-1]
+    esc = {"n": 10, "t": 9, '"': 34, "\\": 92, "a": 7, "b": 8, "f": 12, "r": 13, "v": 11}
+    while i < len(body):
+        c = body[i]
+        if c == "\\" and i + 1 < len(body):
+            nxt = body[i + 1]
+            if nxt in "01234567" and re.match(r"[0-7]{3}", body[i + 1:i + 4]):
+                out.append(int(body[i + 1:i + 4], 8))
+                i += 4
+                continue
+            out.append(esc.get(nxt, ord(nxt)))
+            i += 2
+            continue
+        out += c.encode("utf-8")
+        i += 1
+    return out.decode("utf-8", errors="replace")
+
+
+def _header_paths(rest):
+    """The two names on a `diff --git a/X b/Y` line. Unambiguous when quoted
+    or when both are the same file (anything but a rename, whose `rename
+    from/to` lines say the names anyway)."""
+    if rest.startswith('"'):
+        m = re.match(r'("(?:[^"\\]|\\.)*")\s+(.*)$', rest)
+        if m:
+            return git_unquote(m.group(1))[2:], git_unquote(m.group(2))[2:]
+    n = (len(rest) - 5) // 2
+    if rest[:2] == "a/" and rest[2 + n:5 + n] == " b/" and rest[2:2 + n] == rest[5 + n:]:
+        return rest[2:2 + n], rest[5 + n:]
+    return None, None
+
+
+def _side_path(raw):
+    """The name on a ---/+++ line: unquoted, prefix dropped, and without the
+    TAB git appends after a name that contains a space."""
+    name = raw[4:]
+    if name.endswith("\t"):
+        name = name[:-1]
+    if name == "/dev/null":
+        return None
+    name = git_unquote(name)
+    return name[2:] if name[:2] in ("a/", "b/") else name
+
+
+def parse_unified(text):
+    """`git diff` output → [{path, old_path, status, added, removed, lines}],
+    each line {t: "@" | "+" | "-" | " ", text, old, new} with 1-based numbers.
+    Lines are split on "\n" only (str.splitlines also breaks on form feeds and
+    U+2028, which would shift every number after them), and a hunk is read for
+    exactly the number of lines its header announces."""
+    files, cur = [], None
+    o = n = rem_old = rem_new = 0
+    rows = text.split("\n")
+    if rows and rows[-1] == "":
+        rows.pop()
+    for raw in rows:
+        if raw.endswith("\r"):
+            raw = raw[:-1]
+        if cur is not None and (rem_old > 0 or rem_new > 0):
+            t = raw[:1] if raw else " "          # an empty line is a blank context line
+            if t == "\\":                          # "\ No newline at end of file"
+                continue
+            if t not in "+- ":
+                rem_old = rem_new = 0              # malformed: fall through to the headers
+            else:
+                body = raw[1:]
+                cur["lines"].append({"t": t, "text": body,
+                                     "old": o if t != "+" else None,
+                                     "new": n if t != "-" else None})
+                if t != "+":
+                    o += 1
+                    rem_old -= 1
+                if t != "-":
+                    n += 1
+                    rem_new -= 1
+                if t == "+":
+                    cur["added"] += 1
+                elif t == "-":
+                    cur["removed"] += 1
+                continue
+        if raw.startswith("diff --git "):
+            a_, b_ = _header_paths(raw[len("diff --git "):])
+            cur = {"path": b_, "old_path": a_, "status": "modified",
+                   "added": 0, "removed": 0, "lines": [], "binary": False}
+            files.append(cur)
+            continue
+        if cur is None:
+            continue
+        if raw.startswith("new file mode"):
+            cur["status"] = "added"
+        elif raw.startswith("deleted file mode"):
+            cur["status"] = "deleted"
+        elif raw.startswith("old mode") and cur["status"] == "modified":
+            cur["status"] = "mode changed"
+        elif raw.startswith("rename from "):
+            cur["old_path"] = git_unquote(raw[len("rename from "):])
+        elif raw.startswith("rename to "):
+            cur["path"], cur["status"] = git_unquote(raw[len("rename to "):]), "renamed"
+        elif raw.startswith("--- "):
+            cur["old_path"] = _side_path(raw)
+            if cur["old_path"] is None:
+                cur["status"] = "added"
+        elif raw.startswith("+++ "):
+            new = _side_path(raw)
+            if new is None:
+                cur["status"] = "deleted"
+            else:
+                cur["path"] = new
+                if cur["status"] == "mode changed":
+                    cur["status"] = "modified"
+        elif raw.startswith("Binary files "):
+            cur["binary"] = True
+            if raw.endswith(" and /dev/null differ"):
+                cur["status"] = "deleted"
+            elif raw.startswith("Binary files /dev/null and "):
+                cur["status"] = "added"
+        elif raw.startswith("@@"):
+            m = HUNK_RE.match(raw)
+            if m:
+                o, n = int(m.group(1)), int(m.group(3))
+                rem_old = int(m.group(2)) if m.group(2) is not None else 1
+                rem_new = int(m.group(4)) if m.group(4) is not None else 1
+            cur["lines"].append({"t": "@", "text": raw, "old": None, "new": None})
+    for f in files:
+        f["path"] = f["path"] or f["old_path"] or "?"
+    return files
+
+
+def git_review_filters(cwd):
+    """`-c` overrides that empty every clean/smudge/process filter defined in
+    the repository's OWN config (.git/config, worktree, includes from them):
+    with a matching .gitattributes, `git diff` would run them. Filters from
+    the user's global config (git-lfs) are the user's and keep working."""
+    listing = git_out(cwd, "config", "--show-scope", "--name-only", "--get-regexp", r"^filter\.")
+    if listing is None:                  # git < 2.26 has no --show-scope: empty them all
+        listing = "\n".join("local\t" + x for x in
+                            (git_out(cwd, "config", "--name-only", "--get-regexp", r"^filter\.") or "").splitlines())
+    drivers = set()
+    for line in listing.splitlines():
+        scope, _, key = line.partition("\t")
+        if scope in ("local", "worktree", "command") and key.count(".") >= 2:
+            drivers.add(key[len("filter."):key.rindex(".")])
+    out = []
+    for d in sorted(drivers):
+        out += ["-c", f"filter.{d}.clean=", "-c", f"filter.{d}.smudge=",
+                "-c", f"filter.{d}.process=", "-c", f"filter.{d}.required=false"]
+    return out
+
+
+def git_review(cwd, args, extra=(), limit=None):
+    """Raw stdout of a read-only git command for Review changes. Reading stops
+    at `limit` bytes (then cut=True). A failure raises ValueError carrying
+    git's own message, so the dialog says why instead of "no changes"."""
+    git = shutil.which("git", path=login_path())
+    if not git:
+        raise ValueError("git is not installed")
+    # its own process group on POSIX, so a timeout also ends helpers it started
+    # (they would hold the pipe open and keep the read below waiting)
+    kw = {"creationflags": 0x08000000} if os.name == "nt" else {"start_new_session": True}
+    # git's messages in English, whatever the user's locale: "not a git
+    # repository" is matched below (names are raw bytes: core.quotePath=false)
+    env = dict(os.environ, LC_ALL="C", LANG="C", GIT_NO_LAZY_FETCH="1")
+    env.pop("LANGUAGE", None)
+    try:
+        proc = subprocess.Popen([git, *GIT_REVIEW_CONFIG, *extra, "-C", str(cwd), *args],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                stdin=subprocess.DEVNULL, env=env, **kw)
+    except OSError as e:
+        raise ValueError(f"could not run git: {e}")
+    def kill():
+        try:
+            if os.name == "nt":
+                proc.kill()
+            else:
+                os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            pass
+    timed_out = []
+    timer = threading.Timer(GIT_REVIEW_TIMEOUT, lambda: (timed_out.append(1), kill()))
+    timer.start()
+    err = []
+    drain = threading.Thread(target=lambda: err.append(proc.stderr.read()), daemon=True)
+    drain.start()                        # a full stderr pipe must not stall stdout
+    try:
+        out = proc.stdout.read(limit + 1) if limit else proc.stdout.read()
+        cut = bool(limit) and len(out) > limit
+        if cut:
+            kill()
+        rc = proc.wait()
+        drain.join(2)
+    finally:
+        timer.cancel()
+    if cut:
+        return out[:limit], True
+    if timed_out:
+        raise ValueError(f"git took longer than {GIT_REVIEW_TIMEOUT} s (very large changes?)")
+    if rc != 0:
+        msg = (err[0] if err else b"").decode("utf-8", "replace").strip().splitlines()
+        fatal = [m for m in msg if m.startswith(("fatal:", "error:"))]
+        raise ValueError("git: " + (fatal[0] if fatal else msg[-1] if msg else f"exit status {rc}"))
+    return out, False
+
+
+def untracked_file(cwd, rel, budget=UNTRACKED_MAX_BYTES):
+    """A new file git does not track yet, as an all-added diff entry. Read
+    only when it fits both the per-file cap and what is left of `budget`."""
+    p = Path(cwd) / rel
+    skip = ("symlink" if p.is_symlink() else "sensitive" if is_sensitive(p) else None)
+    if skip:                    # a link can point anywhere; a key file stays unread
+        return {"path": rel, "old_path": None, "status": "untracked", "added": 0, "removed": 0,
+                "lines": [], "binary": False, "skipped": skip}
+    try:
+        size = p.stat().st_size
+        if size > UNTRACKED_MAX_BYTES or size > budget:
+            return {"path": rel, "old_path": None, "status": "untracked", "added": 0,
+                    "removed": 0, "lines": [], "binary": False, "too_big": True,
+                    "skipped": "size" if size > UNTRACKED_MAX_BYTES else "budget", "size": size}
+        data = p.read_bytes()
+    except OSError:
+        return None
+    if b"\0" in data[:8192]:
+        return {"path": rel, "old_path": None, "status": "untracked", "added": 0,
+                "removed": 0, "lines": [], "binary": True, "size": len(data)}
+    rows = data.decode("utf-8", errors="replace").split("\n")
+    if rows and rows[-1] == "":
+        rows.pop()                       # the newline that ends the last line
+    rows = [r[:-1] if r.endswith("\r") else r for r in rows]
+    lines = [{"t": "@", "text": f"@@ -0,0 +1,{len(rows)} @@ new file", "old": None, "new": None}]
+    lines += [{"t": "+", "text": r, "old": None, "new": i} for i, r in enumerate(rows, 1)]
+    return {"path": rel, "old_path": None, "status": "untracked", "added": len(rows),
+            "removed": 0, "lines": lines, "binary": False, "size": len(data)}
+
+
+def review_allowed(root, cwd):
+    """Review changes reads folders under the home folder, as the Files pane
+    does, or the folder of a project Claude Code has worked in."""
+    try:
+        safe_home_path(cwd)
+        return True
+    except (ValueError, OSError):
+        pass
+    want = os.path.normcase(os.path.abspath(str(cwd)))
+    return any(p.get("path") and os.path.normcase(os.path.abspath(p["path"])) == want
+               for p in list_projects(root))
+
+
+def git_diff(cwd, base=None):
+    """The working tree (staged, unstaged and untracked) against HEAD, or
+    against where it left a local branch (`git merge-base <branch> HEAD`).
+    Read-only: `git rev-parse`, `branch`, `merge-base`, `config`, `diff` and
+    `ls-files`, with the repository's own diff drivers, textconv, filters and
+    fsmonitor switched off."""
+    if not cwd or not os.path.isdir(cwd):
+        raise FileNotFoundError("that folder does not exist")
+    try:
+        top = git_review(cwd, ["rev-parse", "--show-toplevel"])[0].decode("utf-8", "replace").strip()
+    except ValueError as e:
+        if "not a git repository" in str(e):
+            return {"git": False, "files": []}
+        raise                            # e.g. "detected dubious ownership": say so
+    branches = [b for b in (git_out(top, "branch", "--format=%(refname:short)") or "").splitlines() if b]
+    current = (git_out(top, "rev-parse", "--abbrev-ref", "HEAD") or "").strip()
+    has_head = bool((git_out(top, "rev-parse", "--verify", "-q", "HEAD") or "").strip())
+    rev, label = ("HEAD" if has_head else None), "uncommitted changes"
+    if base and base != "HEAD":
+        if base not in branches:
+            raise ValueError("unknown branch: " + str(base)[:80])
+        rev = (git_out(top, "merge-base", base, "HEAD") or "").strip()
+        if not rev:
+            raise ValueError(f"{base} and HEAD share no history")
+        label = "since " + base
+    extra = git_review_filters(top)
+    # --no-ext-diff / --no-textconv: no diff driver from the repo's config runs;
+    # "--" after the revision: a file named HEAD must not make it ambiguous
+    flags = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "-M",
+             "--src-prefix=a/", "--dst-prefix=b/"]
+    if not rev:                          # no commit yet: everything on disk is new
+        rev = git_review(top, ["hash-object", "-t", "tree", "--stdin"])[0].decode().strip()
+    raw, truncated = git_review(top, flags + [rev, "--"], extra, DIFF_MAX_BYTES)
+    files = parse_unified(raw.decode("utf-8", "replace"))
+    if truncated and files:
+        files.pop()                      # the last file was cut mid-hunk
+    budget = UNTRACKED_TOTAL_BYTES
+    names = git_review(top, ["ls-files", "--others", "--exclude-standard", "-z"])[0].split(b"\0")
+    for raw_name in (x for x in names if x):
+        if len(files) >= DIFF_MAX_FILES:
+            truncated = True
+            break
+        u = untracked_file(top, os.fsdecode(raw_name), budget)
+        if u:
+            u["path"] = raw_name.decode("utf-8", "replace")   # JSON-safe even for a Latin-1 name
+            files.append(u)
+            if not u.get("skipped"):
+                budget -= u.get("size", 0)      # bytes actually read
+    return {"git": True, "root": top, "base": base or "HEAD", "label": label,
+            "current": current, "branches": branches,
+            "files": files[:DIFF_MAX_FILES], "truncated": truncated or len(files) > DIFF_MAX_FILES}
+
+
 EXPORT_MAX = 50 * 1024 * 1024
 
 
@@ -2796,6 +3303,9 @@ class Term:
         self.is_claude = "claude" in Path(argv[0]).name.lower()
         resume = next((argv[i + 1] for i, a in enumerate(argv[:-1])
                        if a in ("--resume", "--session-id")), None)
+        if "--fork-session" in argv:
+            resume = None           # a fork writes a NEW transcript: found by its birth time
+        self.sid = resume if self.is_claude else None   # lets the UI tie events to this tab
         self.snap = session_snapshot(cwd, resume) if self.is_claude else None
         self.buf = bytearray()      # scrollback so re-attaching clients catch up
         self.discarded = 0          # bytes trimmed off the front of buf, ever
@@ -2887,8 +3397,9 @@ class Term:
                 LOG.exception("session summary failed")
         if self.is_claude and self.snap:  # also on quit: that is the retrospective's point
             try:
+                root = self.snap.get("root")
                 spawn_improve(self.cwd, session_transcript(
-                    self.cwd, self.snap["started"], self.snap.get("resume")))
+                    self.cwd, self.snap["started"], self.snap.get("resume"), root), root)
             except Exception:
                 pass
 
@@ -3289,16 +3800,211 @@ def ember_prompt_args():
     return [] if "CLAUDE_DEVTOOLS_UI" in own else ["--append-system-prompt", EMBER_PROMPT]
 
 
-def logged_in():
+def claude_json_path(root=None):
+    """Claude Code's own config file: ~/.claude.json for the default ~/.claude,
+    but INSIDE the folder when CLAUDE_CONFIG_DIR points elsewhere (a profile)."""
+    root = Path(root or CLAUDE_ROOT)
+    return root.parent / ".claude.json" if is_default_root(root) else root / ".claude.json"
+
+
+def logged_in(root=None):
     """True/False when we can tell, None when we can't (keychain-only setups).
     Not a blocker either way: claude itself walks a new user through login."""
     if os.environ.get("ANTHROPIC_API_KEY"):
         return True
     try:
-        conf = json.loads((CLAUDE_ROOT.parent / ".claude.json").read_text(encoding="utf-8"))
+        conf = json.loads(claude_json_path(root).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     return bool(conf.get("oauthAccount")) if isinstance(conf, dict) else None
+
+
+# --- transcript retention ----------------------------------------------------
+# Claude Code deletes transcripts older than `cleanupPeriodDays` (30 unless set)
+# at startup, silently. Ember can only show what is still on disk, so it says so
+# and offers to raise the setting: one key changed, a backup saved first.
+RETENTION_DEFAULT = 30
+RETENTION_KEEP = 3650
+
+
+def retention_days(root=None):
+    """cleanupPeriodDays from settings.json, or None when unset (= 30 days)."""
+    try:
+        v = json.loads((Path(root or CLAUDE_ROOT) / "settings.json")
+                       .read_text(encoding="utf-8")).get("cleanupPeriodDays")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else None
+
+
+def set_json_key(text, key, value):
+    """`text` (a JSON object) with one top-level key set, everything else kept
+    byte for byte: a dotfiles repo then sees a one-line diff. Falls back to a
+    re-dump (non-ASCII kept) when the text is too unusual to edit safely."""
+    st = json.loads(text)
+    val = json.dumps(value)
+    want = dict(st, **{key: value})
+    m = re.search(r'("' + re.escape(key) + r'"\s*:\s*)(-?\d+(?:\.\d+)?|null|true|false|"[^"\\]*")', text)
+    brace = text.index("{")
+    if m:                                # the key is there: change its value only
+        out = text[:m.start(2)] + val + text[m.end(2):]
+    elif not st:                         # {} → {"key": value}
+        out = text[:brace] + "{" + f'"{key}": {val}' + text[text.index("}", brace):]
+    else:                                # first in the object, indented like the next line
+        ind = re.match(r"[ \t]*(\r?\n)([ \t]+)\S", text[brace + 1:])
+        out = (text[:brace + 1] + (f'{ind.group(1)}{ind.group(2)}"{key}": {val},' if ind else f'"{key}": {val}, ')
+               + text[brace + 1:])
+    try:
+        if json.loads(out) == want:
+            return out
+    except ValueError:
+        pass
+    return json.dumps(want, indent=2, ensure_ascii=False) + "\n"
+
+
+def retention_set(days, root=None):
+    if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= 36500:
+        raise ValueError("days must be a whole number from 1 to 36500")
+    link = Path(root or CLAUDE_ROOT) / "settings.json"
+    # dotfiles: write the link's target, keep the link (and the backup beside it)
+    p = link.resolve() if link.is_symlink() else link
+    try:
+        with open(p, encoding="utf-8", newline="") as fh:     # CRLF stays CRLF
+            text = fh.read()
+    except FileNotFoundError:
+        text = None
+    if text is not None and text.strip():
+        try:
+            st = json.loads(text)
+        except ValueError:
+            raise ValueError("settings.json is not valid JSON: Ember left it alone")
+        if not isinstance(st, dict):
+            raise ValueError("settings.json is not a JSON object: Ember left it alone")
+        new = set_json_key(text, "cleanupPeriodDays", days)
+    else:
+        new = json.dumps({"cleanupPeriodDays": days}, indent=2) + "\n"
+    if text is not None:                 # a byte copy, mode included
+        shutil.copy2(p, link.with_name("settings.json.bak-devtools"))
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name("settings.json.tmp-ember")
+    with open(tmp, "w", encoding="utf-8", newline="") as fh:
+        fh.write(new)
+    if text is not None:
+        shutil.copymode(p, tmp)          # a chmod 600 settings.json stays 600
+    os.replace(tmp, p)
+    return {"ok": True, "days": days}
+
+
+# --- account profiles -----------------------------------------------------------
+# Claude Code keeps one account per config folder: ~/.claude by default,
+# any other folder through CLAUDE_CONFIG_DIR (its own login, settings,
+# transcripts). A profile is such a folder; Ember shows one at a time and
+# starts its terminals with CLAUDE_CONFIG_DIR pointing at it. Only folders
+# named ~/.claude or ~/.claude-<name> (or the CLAUDE_CONFIG_DIR Ember was
+# started with) count, so the switch endpoint cannot point Ember anywhere else.
+PROFILE_NAME_RE = re.compile(r"[a-z0-9][a-z0-9_-]{0,30}")
+
+
+def is_default_root(root=None):
+    default = Path.home() / ".claude"
+    try:
+        return Path(root or CLAUDE_ROOT).resolve() == default.resolve()
+    except OSError:
+        return Path(root or CLAUDE_ROOT) == default
+
+
+def profile_name(p):
+    p = Path(p)
+    if is_default_root(p):
+        return "default"
+    return p.name[len(".claude-"):] if p.name.startswith(".claude-") else p.name
+
+
+def profile_dirs():
+    found = [Path.home() / ".claude"]
+    env = os.environ.get("CLAUDE_CONFIG_DIR")
+    if env:
+        found.append(Path(env).expanduser())
+    try:
+        # .claude.json (Claude Code writes it on first run) or projects/ (Ember's
+        # new profile, before its sign-in): a settings.json alone is any tool's
+        found += sorted(d for d in Path.home().glob(".claude-*") if d.is_dir() and (
+            (d / ".claude.json").is_file() or (d / "projects").is_dir()))
+    except OSError:
+        pass
+    out, seen = [], set()
+    for d in found:
+        try:
+            key = d.resolve()
+        except OSError:
+            key = d
+        if key not in seen:
+            seen.add(key)
+            out.append(d)
+    return out
+
+
+def list_profiles():
+    cur = Path(CLAUDE_ROOT)
+    out = []
+    for d in profile_dirs():
+        try:
+            conf = json.loads(claude_json_path(d).read_text(encoding="utf-8"))
+            email = ((conf.get("oauthAccount") or {}).get("emailAddress")
+                     if isinstance(conf, dict) else None)
+        except (OSError, ValueError, AttributeError):
+            email = None
+        try:
+            active = d.resolve() == cur.resolve()
+        except OSError:
+            active = d == cur
+        out.append({"path": str(d), "name": profile_name(d), "email": email,
+                    "active": active, "ready": (d / "projects").is_dir()})
+    return {"profiles": out, "active": str(cur)}
+
+
+def use_profile(path, startup=False):
+    """Point the whole server at another profile. Every request reads the
+    root fresh, so nothing else needs restarting; the usage baseline is
+    recomputed because it describes one account's history."""
+    global CLAUDE_ROOT
+    match = next((d for d in profile_dirs() if str(d) == str(path)), None)
+    if match is None:
+        raise ValueError("not a profile Ember knows")
+    (match / "projects").mkdir(parents=True, exist_ok=True)
+    CLAUDE_ROOT = match
+    Handler.root = match
+    if not startup:                 # main() starts its own baseline scan
+        state_write({"profile": str(match), "baseline_max": 0, "baseline_p90": 0,
+                     "baseline_blocks": 0})
+        threading.Thread(target=compute_baseline, args=(match,), daemon=True).start()
+    return list_profiles()
+
+
+def create_profile(name):
+    name = str(name or "").strip().lower()
+    if not PROFILE_NAME_RE.fullmatch(name) or name == "default":
+        raise ValueError("a profile name is lowercase letters, digits, - or _ (up to 31)")
+    d = Path.home() / (".claude-" + name)
+    (d / "projects").mkdir(parents=True, exist_ok=True)
+    return use_profile(d)
+
+
+LAUNCH_CONFIG_DIR = os.environ.get("CLAUDE_CONFIG_DIR")
+
+
+def child_config_env(env, root=None):
+    """A terminal belongs to the profile on screen (or to `root`)."""
+    root = root or CLAUDE_ROOT
+    if is_default_root(root):
+        # Ember started with CLAUDE_CONFIG_DIR=~/.claude spelled out: keep it as given
+        if LAUNCH_CONFIG_DIR and is_default_root(Path(LAUNCH_CONFIG_DIR).expanduser()):
+            env["CLAUDE_CONFIG_DIR"] = LAUNCH_CONFIG_DIR
+        else:
+            env.pop("CLAUDE_CONFIG_DIR", None)
+    else:
+        env["CLAUDE_CONFIG_DIR"] = str(root)
+    return env
 
 
 def setup_status(root):
@@ -3308,18 +4014,72 @@ def setup_status(root):
     except OSError:
         has_projects = False
     pr = practice_dir()
-    return {"claude": bool(find_claude()), "logged_in": logged_in(),
+    return {"claude": bool(find_claude()), "logged_in": logged_in(root),
             "projects": has_projects,
             "aware": "prompt" if ember_prompt_args() else "claude-md",
-            "practice": str(pr) if (pr / PRACTICE_MARK).is_file() else None}
+            "practice": str(pr) if (pr / PRACTICE_MARK).is_file() else None,
+            "retention": retention_days(root)}
 
 
-def start_term(kind, cwd, session_id=None, prompt=None, cols=100, rows=30):
+# New-chat options, checked against the CLI's own choices (claude --help) so
+# nothing else reaches argv. Model: an alias or a full name, no spaces.
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+PERMISSION_MODES = ("acceptEdits", "auto", "bypassPermissions", "manual", "dontAsk", "plan")
+MODEL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._\[\]-]{0,80}")
+WORKTREE_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,60}")
+
+
+def chat_option_args(opts, resume=False):
+    """argv for a dict of new-chat options; anything unknown is dropped."""
+    opts = opts if isinstance(opts, dict) else {}
+    out = []
+    m = opts.get("model")
+    if isinstance(m, str) and MODEL_RE.fullmatch(m):
+        out += ["--model", m]
+    if opts.get("effort") in EFFORTS:
+        out += ["--effort", opts["effort"]]
+    if opts.get("permission_mode") in PERMISSION_MODES:
+        out += ["--permission-mode", opts["permission_mode"]]
+    w = opts.get("worktree")
+    if not resume and w is True:
+        out.append("--worktree")
+    elif not resume and isinstance(w, str) and WORKTREE_RE.fullmatch(w):
+        out += ["--worktree", w]
+    if resume and opts.get("fork") is True:
+        out.append("--fork-session")
+    return out
+
+
+def shim_safe_prompt(claude, prompt):
+    """A prompt on the command line. npm installs claude on Windows as a .cmd
+    shim, which cmd.exe re-parses: %VAR% expands and an unbalanced quote
+    frees & | < > in the rest. There, no double quotes and no %, and cmd's
+    8191-character line limit."""
+    if is_cmd_shim(claude):
+        flat = " ".join(prompt.replace('"', "'").replace("%", " percent ").split())
+        return flat[:6000]
+    return prompt[:16000]
+
+
+def is_cmd_shim(claude):
+    return str(claude or "").lower().endswith((".cmd", ".bat"))               # a code review can run long; Windows caps a command line at 32k
+
+
+def start_term(kind, cwd, session_id=None, prompt=None, cols=100, rows=30, opts=None):
     if not HAS_TERMINAL:
         raise NotImplementedError(
             "no pseudo-terminal available: " + (winconpty.unsupported_reason()
                                                 or "unknown reason"))
     cwd = cwd if cwd and os.path.isdir(cwd) else str(Path.home())
+    notes = []
+    opts = dict(opts) if isinstance(opts, dict) else {}
+    # claude --worktree needs a git repository: elsewhere, start without one
+    if opts.get("worktree") is True and prompt:
+        opts.pop("worktree")             # a bare --worktree would take the prompt as its name
+    if (kind != "shell" and opts.get("worktree") and not (kind == "resume" and session_id)
+            and (git_out(cwd, "rev-parse", "--is-inside-work-tree") or "").strip() != "true"):
+        opts.pop("worktree")
+        notes.append(f"{Path(cwd).name or cwd} is not a git repository: this chat runs without its own worktree")
     if kind == "shell":
         argv = [default_shell()] + ([] if os.name == "nt" else ["-l"])
     else:
@@ -3331,20 +4091,22 @@ def start_term(kind, cwd, session_id=None, prompt=None, cols=100, rows=30):
                 "its full path and restart the dashboard. Looked on the login "
                 "shell PATH and in " + ", ".join(CLAUDE_CANDIDATES[:4]) + " …")
         if kind == "resume" and session_id:
-            argv = [claude, "--resume", session_id]
+            argv = [claude, "--resume", session_id] + chat_option_args(opts, resume=True)
         else:
-            argv = [claude, "--session-id", str(uuid.uuid4())]
+            argv = [claude, "--session-id", str(uuid.uuid4())] + chat_option_args(opts)
             if prompt:                  # e.g. "/graphify" from the viz pane
-                argv.append(str(prompt)[:2000])
+                argv.append(shim_safe_prompt(claude, str(prompt)))
         argv[1:1] = ember_prompt_args()
+        if is_cmd_shim(claude):          # cmd.exe would end the command at a newline
+            argv[1:] = [a if a.startswith("-") else shim_safe_prompt(claude, a) for a in argv[1:]]
     # complete child environment: scrubbed of the parent session's markers (so
     # transcripts get saved), with the login PATH (an app-launched server has a
     # minimal one), telling Claude Code it runs inside this dashboard
-    env = child_environment(extra={
+    env = child_config_env(child_environment(extra={
         "PATH": login_path(),
         "CLAUDE_DEVTOOLS_UI": "1",
         "CLAUDE_DEVTOOLS_VIZ_DIR": str(VIZ_DIR),
-        "CLAUDE_DEVTOOLS_URL": f"http://127.0.0.1:{SERVER_PORT}"})
+        "CLAUDE_DEVTOOLS_URL": f"http://127.0.0.1:{SERVER_PORT}"}))
     impl = PosixTerm if HAS_PTY else WindowsTerm
     # check the cap BEFORE spawning: refusing after the fork left the new
     # child running with no tab to close it from
@@ -3357,6 +4119,7 @@ def start_term(kind, cwd, session_id=None, prompt=None, cols=100, rows=30):
     # wrong width emits wrapped output that stays wrong after the SIGWINCH
     t = impl(argv, cwd, cols=clamp_dim(cols, 100), rows=clamp_dim(rows, 30),
              env=env)
+    t.notes = notes
     with TERMS_LOCK:
         TERMS[t.id] = t     # ponytail: two racing starts can reach MAX_TERMS+1
     return t
@@ -3642,6 +4405,31 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(setup_status(self.root))
                 return
 
+            if p == "/api/usage/sources":
+                try:
+                    days = int(qs.get("days", ["7"])[0])
+                except ValueError:
+                    days = 7
+                self._json(usage_sources(self.root, days))
+                return
+
+            if p == "/api/pending":
+                self._json(pending_request(self.root, qs.get("cwd", [""])[0],
+                                           qs.get("session", [""])[0]))
+                return
+
+            if p == "/api/gitdiff":
+                cwd = qs.get("cwd", [""])[0]
+                if not review_allowed(self.root, cwd):
+                    self._err(403, "Review changes reads folders under your home folder or a project's")
+                    return
+                self._json(git_diff(cwd, qs.get("base", [""])[0] or None))
+                return
+
+            if p == "/api/profiles":
+                self._json(list_profiles())
+                return
+
             if p == "/api/home":
                 self._json(home_summary(self.root, qs.get("dir", [None])[0]))
                 return
@@ -3664,7 +4452,8 @@ class Handler(BaseHTTPRequestHandler):
                 with TERMS_LOCK:
                     self._json([{"id": t.id, "label": t.label, "cwd": t.cwd,
                                  "alive": t.alive, "cols": t.cols, "rows": t.rows,
-                                 "kind": "claude" if t.is_claude else "shell"}
+                                 "kind": "claude" if t.is_claude else "shell",
+                                 "sid": getattr(t, "sid", None)}
                                 for t in TERMS.values() if t.alive])
                 return
 
@@ -3840,6 +4629,17 @@ class Handler(BaseHTTPRequestHandler):
                                         body.get("revision")))
                 return
 
+            if p == "/api/retention":
+                self._json(retention_set(body.get("days"), self.root))
+                return
+
+            if p == "/api/profile":
+                if body.get("create"):
+                    self._json(create_profile(body["create"]))
+                else:
+                    self._json(use_profile(body.get("path") or ""))
+                return
+
             if p == "/api/shutdown":
                 # close every terminal session gracefully IN PARALLEL so
                 # Claude Code sessions get to run their SessionEnd hooks,
@@ -3875,9 +4675,11 @@ class Handler(BaseHTTPRequestHandler):
                     prompt = None
                 t = start_term(kind, cwd, sid, prompt=prompt,
                                cols=body.get("cols", 100),
-                               rows=body.get("rows", 30))
+                               rows=body.get("rows", 30),
+                               opts=body.get("options"))
                 self._json({"id": t.id, "label": t.label, "cwd": t.cwd,
-                            "argv": t.argv})
+                            "argv": t.argv, "sid": getattr(t, "sid", None),
+                            "notes": getattr(t, "notes", [])})
                 return
 
             if p == "/api/practice/create":
@@ -4111,6 +4913,7 @@ class Server(ThreadingHTTPServer):
 
 
 def main():
+    global CLAUDE_ROOT                   # --root becomes the profile on screen (below)
     ap = argparse.ArgumentParser(description="Ember — a workspace for Claude Code")
     ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 3456)))
     ap.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"))
@@ -4131,6 +4934,17 @@ def main():
               "network — anyone with the token gets code execution.",
               file=sys.stderr)
     Handler.root = Path(args.root).expanduser()
+    CLAUDE_ROOT = Handler.root           # --root is the profile on screen, terminals included
+    saved = state_read().get("profile")
+    if (saved and args.root == str(CLAUDE_ROOT)
+            and not os.environ.get("CLAUDE_ROOT") and not os.environ.get("CLAUDE_CONFIG_DIR")):
+        try:
+            use_profile(saved, startup=True)     # the profile on screen when Ember last quit
+        except (ValueError, OSError):
+            pass
+    if not projects_dir(Handler.root).is_dir() and not is_default_root(Handler.root) \
+            and Handler.root.is_dir():
+        projects_dir(Handler.root).mkdir(exist_ok=True)    # a profile with no chat yet
     if not projects_dir(Handler.root).is_dir():
         sys.exit(f"error: {Handler.root}/projects not found — is this a Claude Code machine?")
     VIZ_DIR.mkdir(exist_ok=True)

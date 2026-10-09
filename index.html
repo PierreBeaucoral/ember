@@ -919,6 +919,69 @@
   #tourcard .tfoot { display:flex; align-items:center; gap:6px; margin-top:12px; }
   #tourcard .tfoot .copy { margin:0; }
   #tourcard .tstep { color:var(--dim); font-size:11.5px; margin-right:auto; }
+  /* 1.5: compaction landmark, edits shown open, needs-you list, review changes,
+     new-chat options, where the week went */
+  .btnsplit { display:inline-flex; }
+  .btnsplit > #btnResume { border-top-right-radius:0; border-bottom-right-radius:0; }
+  .btnsplit > #btnResumeMore { border-top-left-radius:0; border-bottom-left-radius:0; padding:5px 8px;
+                                border-left:1px solid color-mix(in srgb, var(--on-accent) 35%, transparent); }
+  body.simple .btnsplit > #btnResume { border-radius:6px; }
+  .compactmark { margin:14px 20px 6px; padding:6px 10px; border-top:1px dashed var(--err);
+                 color:var(--err); font-size:12px; display:flex; gap:8px; align-items:baseline; }
+  .compactmark span { color:var(--dim); }
+  .body details.rinput > summary { cursor:pointer; color:var(--dim); font-size:11px; margin-top:6px; }
+  #needs { margin:0 -4px; padding:6px 4px 8px; border:1px solid var(--border); border-radius:8px;
+            max-height:34vh; overflow:auto; }
+  #needs .label { padding:2px 8px 4px; }
+  .need { display:flex; flex-direction:column; gap:2px; padding:2px 0; }
+  .need .nmain { display:flex; flex-direction:column; gap:2px; width:100%; text-align:left; padding:5px 8px;
+                 border:0; border-radius:6px; background:none; color:inherit; font:inherit; cursor:pointer; }
+  .need .nmain:hover { background:var(--panel2); }
+  .need .nmain:focus-visible { outline:2px solid var(--focus); outline-offset:-2px; }
+  .need .nt { display:flex; gap:6px; align-items:center; font-size:12.5px; }
+  .need .nt b { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .need .ns { margin-left:auto; font-size:11px; color:var(--dim); white-space:nowrap; }
+  .need.waiting .ns { color:var(--tool); }
+  .need .nq { font:11.5px/1.35 var(--mono); color:var(--dim); overflow:hidden;
+              text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .need .na { display:flex; gap:4px; margin:0 8px 4px; }
+  .need .na button { font-size:11.5px; padding:2px 8px; }
+  dialog.gd { width:min(1200px, 96vw); height:88vh; }
+  .gdhead { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .gdhead h2 { margin:0; }
+  .gdsum { color:var(--dim); font-size:12px; }
+  .gdmain { flex:1; min-height:0; display:flex; border-top:1px solid var(--border); }
+  .gdfiles { flex:none; width:260px; margin:0; padding:6px; list-style:none; overflow:auto;
+             border-right:1px solid var(--border); font-size:12px; }
+  .gdfiles li { padding:4px 6px; border-radius:5px; cursor:pointer; display:flex; gap:6px; }
+  .gdfiles li[aria-selected="true"] { background:var(--panel2); box-shadow:inset 2px 0 0 var(--accent); }
+  .gdfiles li:focus-visible { outline:2px solid var(--focus); outline-offset:-2px; }
+  .gdl.cur .ln:first-child { box-shadow:inset 3px 0 0 var(--accent); }
+  #gddiff:focus-visible { outline:2px solid var(--focus); outline-offset:-2px; }
+  #gddiff[aria-activedescendant]:focus-visible { outline:none; }     /* the line cursor shows focus */
+  #gddiff:focus-visible .gdl.cur { outline:2px solid var(--focus); outline-offset:-2px; }
+  .gdfiles li span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; direction:rtl; text-align:left; flex:1; }
+  .gdfiles .add, .gddiff .add { color:var(--ok); } .gdfiles .del, .gddiff .del { color:var(--err); }
+  .gddiff { flex:1; overflow:auto; font:12px/1.5 var(--mono); padding:4px 0 20px; }
+  .gdl { display:flex; cursor:text; white-space:pre; }
+  .gdl:hover { background:var(--panel2); }
+  /* the gutter keeps --panel under the tints: dim line numbers stay >= 4.5:1 in every theme */
+  .gdl .ln { flex:none; width:44px; padding-right:6px; text-align:right; color:var(--dim); user-select:none;
+             background:var(--panel); }
+  .gdl code { flex:1; padding-left:8px; font:inherit; }
+  .gdl.p { background:color-mix(in srgb, var(--ok) 12%, transparent); }
+  .gdl.m { background:color-mix(in srgb, var(--err) 12%, transparent); }
+  .gdl.h { color:var(--dim); background:var(--panel); cursor:default; }
+  .gdc { margin:4px 12px 6px 100px; padding:6px 10px; border-left:3px solid var(--accent);
+         background:var(--panel); font-size:12.5px; line-height:1.45; white-space:pre-wrap; display:flex; gap:8px; }
+  .gdc span { flex:1; } .gdc textarea { flex:1; min-height:52px; font:inherit; }
+  .gdcount { margin-right:auto; color:var(--dim); font-size:12px; }
+  .chatopts { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:10px; font-size:12px; }
+  .chatopts select { font-size:12px; }
+  .usrc { margin-top:8px; font-size:12px; }
+  .usrc .srow { display:grid; grid-template-columns:1fr auto; gap:2px 8px; margin:4px 0; }
+  .usrc .srow i { grid-column:1 / -1; height:4px; border-radius:2px; background:var(--bar); display:block; }
+  .usrc .note { color:var(--dim); font-size:10.5px; margin-top:6px; }
 </style>
 </head>
 <body>
@@ -943,6 +1006,7 @@
                aria-label="Filter projects; Enter searches every transcript">
         <kbd id="searchK" title="command palette"></kbd>
       </div>
+      <div id="needs" hidden role="region" aria-label="Sessions that need you"></div>
       <div class="label treelabel">Projects</div>
     </div>
     <div id="tree" role="tree" aria-label="Projects and sessions"><div class="placeholder">loading projects…</div></div>
@@ -950,6 +1014,7 @@
       <button class="btn-quiet" id="btnAddons" title="optional add-ons (graphify, /improve, …)">Add-ons</button>
       <button class="btn-quiet" id="btnTheme" title="change theme" aria-haspopup="menu">Theme</button>
       <button class="btn-quiet" id="btnNotify" aria-pressed="false">Alerts</button>
+      <button class="btn-quiet" id="btnAccount" hidden aria-haspopup="menu" title="which Claude account (profile) Ember shows">Account</button>
       <button class="btn-quiet" id="btnQuit" title="Quit Ember: stop the server">Quit</button>
     </div>
   </div>
@@ -1147,6 +1212,36 @@
       your computer. These are the terms that come with it.</p></div>
   <dl id="glosslist"></dl>
   <div class="adfoot"><button class="copy" id="glossclose">Close</button></div>
+</dialog>
+
+<!-- review changes: the working tree against HEAD or a branch, with line comments -->
+<dialog id="gd" class="adbox gd" aria-labelledby="gdtitle">
+  <div class="adhead gdhead"><h2 id="gdtitle">Review changes</h2>
+    <select id="gdbase" aria-label="Compare against"></select><span id="gdsum" class="gdsum"></span></div>
+  <div class="gdmain">
+    <ul id="gdfiles" class="gdfiles" role="listbox" aria-label="Changed files: arrow keys pick one"></ul>
+    <div id="gddiff" class="gddiff" tabindex="0" role="group" aria-label="Diff"></div>
+  </div>
+  <div class="adfoot"><span id="gdcount" class="gdcount">Click a line, or move with ↑ ↓ and press Enter, to comment on it.</span>
+    <button class="copy" id="gdclose">Close</button>
+    <button class="copy go" id="gdsend" disabled title="types the comments into the Claude terminal in that folder (you press Enter), or starts Claude there with them">Send to Claude</button></div>
+</dialog>
+
+<dialog id="chatopts" class="adbox" aria-labelledby="cotitle">
+  <div class="adhead"><h2 id="cotitle">Options for new chats</h2>
+    <p>Used by every new chat until you change them. Empty means Claude Code's own default.</p></div>
+  <div id="cobody" style="padding:0 20px 12px"></div>
+  <div class="adfoot"><button class="copy" id="coclose">Done</button></div>
+</dialog>
+
+<dialog id="newprof" class="adbox" aria-labelledby="nptitle" style="width:min(480px, 94vw)">
+  <div class="adhead"><h2 id="nptitle">New account profile</h2>
+    <p>A profile is its own Claude Code folder (~/.claude-<i>name</i>): its own sign-in, settings
+      and chats. Ember switches to it and opens a terminal where you sign in.</p></div>
+  <div style="padding:0 20px 12px"><label>Name <input id="npname" placeholder="work" maxlength="31"
+      pattern="[a-z0-9][a-z0-9_-]*" autocomplete="off" spellcheck="false"></label></div>
+  <div class="adfoot"><button class="copy" id="npcancel">Cancel</button>
+    <button class="copy go" id="npok">Create and sign in</button></div>
 </dialog>
 
 <!-- in-app confirm (replaces window.confirm): see ask() -->
@@ -1581,6 +1676,7 @@ function projName(slug){
   const path = p && p.path ? p.path.replace(/\/+$/, "") : "";
   return baseName(path) || null;
 }
+const projPath = slug => ((state.projects || []).find(x => x.slug === slug) || {}).path || null;
 
 /* live filter: typing narrows the tree to projects whose path matches, and to
    sessions whose title matches in projects already opened (their titles are
@@ -1599,7 +1695,7 @@ function treeFilter(p){
    EV.now maps a session's cwd to the tool it is running: set on PreToolUse,
    cleared on PostToolUse, Stop and SessionEnd. Events carry metadata only
    (never tool inputs), and nothing here would show them anyway. */
-const EV = {offset: -1, enabled: false, now: {}, alerted: {}};
+const EV = {offset: -1, enabled: false, now: {}, alerted: {}, sess: {}};
 const normPath = p => String(p || "").replace(/[\\/]+$/, "");
 // the deepest project whose folder is the cwd or contains it
 function projectForCwd(projects, cwd){
@@ -1625,6 +1721,40 @@ function applyEvents(now, events){
     if(isWaitingEvent(e)) alerts.push(e);
   }
   return {now: next, alerts};
+}
+/* "Needs you": each session's state from the same events. waiting = a
+   permission prompt; done = Claude finished its turn (or sat idle at the
+   prompt); working = anything in between. SessionEnd forgets the session.
+   Two facts from real event logs shape it: subagents report under their
+   parent's session id (with an agent_id), and keep running tools after the
+   main turn has ended; and while a prompt waits, parallel calls of OTHER
+   tools finish. So: a subagent's events change nothing except a prompt it
+   raises (agent: true), and a wait ends only when its own tool finishes, a
+   new prompt is sent, or the turn ends. Pure: tests/test_frontend.js lifts it. */
+const SESS_WORK = new Set(["UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionDenied"]);
+function applySessEvents(sess, events, t){
+  const next = Object.assign({}, sess);
+  for(const e of events || []){
+    const id = e && e.session_id, n = e && e.hook_event_name;
+    if(!id) continue;
+    if(n === "SessionEnd"){ delete next[id]; continue; }
+    const perm = n === "PermissionRequest" || (n === "Notification" && /permission/i.test(e.notification_type || ""));
+    if(e.agent_id && !perm) continue;
+    const st = perm ? "waiting" : n === "Stop" || (n === "Notification" && /idle/i.test(e.notification_type || "")) ? "done"
+             : n === "StopFailure" ? "error" : SESS_WORK.has(n) ? "working" : null;
+    if(!st) continue;
+    const prev = next[id] || {};
+    if(prev.state === "waiting" && st !== "waiting"
+       && !(n === "UserPromptSubmit" || n === "Stop" || n === "StopFailure" || n === "PermissionDenied"
+            || ((n === "PostToolUse" || n === "PostToolUseFailure") && e.tool_name === prev.tool))) continue;
+    // a permission Notification repeats the PermissionRequest: keep what that one said
+    const again = perm && prev.state === "waiting" && n === "Notification";
+    next[id] = {cwd: e.cwd || prev.cwd, state: st, t: again ? prev.t : t, perm,
+                agent: perm ? (again ? !!prev.agent : !!e.agent_id) : false,
+                tool: perm ? e.tool_name || prev.tool || null : e.tool_name || null,
+                pending: st === "waiting" ? prev.pending : null};
+  }
+  return next;
 }
 /* OS notifications: which events deserve one — a session waiting for you,
    or Claude finishing its turn (Stop) — at most one per session and kind
@@ -1857,7 +1987,7 @@ function mountHeader(el){
 const statsHtml = t => `<span title="${t.requests || 0} requests">Output <b class="num">${fmtTok(t.output_tokens)}</b></span>`
   + `<span>Peak context <b class="num">${fmtTok(t.peak_context)}</b></span>`
   + `<span title="cache write ${fmtTok(t.cache_creation)}">Cache read <b class="num">${fmtTok(t.cache_read)}</b></span>`;
-// errors / agents / skills: the kinds worth jumping to (tool counts live in the Context panel)
+// errors / agents / skills / compactions: the kinds worth jumping to (tool counts live in the Context panel)
 const chipsHtml = s => {
   const chips = Object.keys(NAVLAB).map(k => [k, s.entries.filter(NAV[k]).length]).filter(([, n]) => n)
     .map(([k, n]) => `<button class="chip nav ${k}" data-nav="${k}" title="jump to the next one (key ${k[0]})">${NAVLAB[k]} ×${n}</button>`).join("");
@@ -1868,7 +1998,7 @@ const toolChipsHtml = s => Object.entries(s.tool_counts || {}).sort((a, b) => b[
 
 /* Timeline filters, kept across sessions: "Everything" or "Prompts and
    answers" (steps hidden), plus the per-kind toggles of the View menu. */
-const TLF = Object.assign({steps: true, think: true, tools: true, sys: false, agents: true},
+const TLF = Object.assign({steps: true, think: true, tools: true, sys: false, agents: true, edits: false},
   (() => { try{ return JSON.parse(localStorage.getItem("ember-tlf") || "{}"); }catch(e){ return {}; } })());
 const TLF_KINDS = [["think", "Thinking"], ["tools", "Tool calls"], ["sys", "System and commands"], ["agents", "Agents"]];
 function applyFilters(){
@@ -1887,7 +2017,17 @@ function viewMenu(anchor){
       it.setAttribute("aria-checked", TLF[k]);
       if(k === "sys") it.classList.add("xadv");
     }
+    const ed = menuItem(m, (TLF.edits ? "✓ " : "\u2003") + "Open edits with their diff",
+      "edits and new files show their diff without a click", () => { TLF.edits = !TLF.edits; applyFilters(); openEdits(); });
+    ed.setAttribute("role", "menuitemcheckbox");
+    ed.setAttribute("aria-checked", TLF.edits);
   }, "View");
+}
+const isEdit = e => e.kind === "tool" && (!!e.patch || (e.name === "Edit" && e.input && e.input.old_string !== undefined));
+// the View option, applied to the rows already on screen
+function openEdits(){
+  if(!VIEW) return;
+  for(const [i, el] of VIEW.rows) if(el._open && isEdit(VIEW.s.entries[i])) el._open(TLF.edits);
 }
 
 /* ---------- turns ----------------------------------------------------------
@@ -1895,6 +2035,8 @@ function viewMenu(anchor){
    renders as one card: a header that sums the turn up, one line per step
    (opened on click, built on first open), and the final answer in full.
    Pure helpers first (tests/test_frontend.js lifts them). */
+// a compaction boundary, or the summary Claude Code puts in its place
+const isCompaction = e => !!e && (e.kind === "compact" || (e.kind === "meta" && e.sub === "summary"));
 const isPrompt = e => (e.kind === "user" && !e.queued && !/^\s*<system-reminder>/.test(e.text || ""))
                    || (e.kind === "command" && !!e.cmd);
 function groupTurns(entries){
@@ -2036,8 +2178,10 @@ const NAV = {
   error: e => (e.kind === "tool" && e.is_error) || e.kind === "hook" || !!e.api_error,
   agent: e => e.kind === "tool" && !!e.agent_id,
   skill: e => (e.kind === "meta" && e.sub === "skill") || (e.kind === "tool" && e.name === "Skill"),
+  // one per compaction: the summary right after its boundary is the same event
+  compact: (e, i, E) => isCompaction(e) && !(E && i > 0 && isCompaction(E[i - 1])),
 };
-const NAVLAB = {error: "errors", agent: "agents", skill: "skills"};
+const NAVLAB = {error: "errors", agent: "agents", skill: "skills", compact: "compactions"};
 
 let VIEW = null;                // the session or subagent on screen
 let CTX_PANEL = (() => { try{ return localStorage.getItem("ember-ctxpanel") === "1"; }catch(e){ return false; } })();
@@ -2059,7 +2203,8 @@ function renderSession(s, ctx){
       <div class="shact">
         <button class="btn-quiet" id="btnExport" title="save this session as one HTML file to share">Export</button>
         <button class="btn-quiet" id="btnCtx" aria-pressed="${CTX_PANEL}" title="what is in the context window, by source">Context</button>
-        ${!ctx.isAgent ? `<button class="btn-primary" id="btnResume" title="claude --resume ${esc(s.id)}"><span class="xfull">Resume in terminal</span><span class="xsimple">Continue this conversation</span></button>` : ""}
+        ${!ctx.isAgent ? `<button class="btn-quiet xadv" id="btnChanges" title="the project's changes in git, with line comments you can send to Claude">Changes</button>` : ""}
+        ${!ctx.isAgent ? `<span class="btnsplit"><button class="btn-primary" id="btnResume" title="claude --resume ${esc(s.id)}"><span class="xfull">Resume in terminal</span><span class="xsimple">Continue this conversation</span></button><button class="btn-primary xadv" id="btnResumeMore" aria-haspopup="menu" aria-label="Other ways to continue" title="Fork: continue as a new conversation">▾</button></span>` : ""}
       </div></div>
     <div class="meta shmeta" title="${s.entries.length} timeline entries${s.sidechain_msgs ? ", " + s.sidechain_msgs + " sidechain messages" : ""}">
       <span class="live" hidden title="following this session: new entries appear as they are written"><i class="livedot"></i>live</span>
@@ -2072,7 +2217,7 @@ function renderSession(s, ctx){
       <button class="btn-quiet" id="btnView" aria-haspopup="menu" title="which kinds of step to show">View ▾</button>
       <button class="gl" data-gl="tool" aria-label="What is a tool call?">?</button>
       <span class="chips">${chipsHtml(s)}</span>
-      <span class="keyhint" title="with the timeline focused">j/k turns · e errors · a agents · s skills (⇧ = back)</span>
+      <span class="keyhint" title="with the timeline focused">j/k turns · e errors · a agents · s skills · c compactions (⇧ = back)</span>
     </div>`;
   mountHeader(head);
   head.querySelectorAll(".seg [data-mode]").forEach(b => b.onclick = () => {
@@ -2084,6 +2229,15 @@ function renderSession(s, ctx){
   if(rbtn) rbtn.onclick = () => openTerm("resume",
     {project: ctx.slug, session: s.id,
      label: "resume · " + (projName(ctx.slug) || s.id.slice(0,8))});
+  const more = head.querySelector("#btnResumeMore");
+  if(more) more.onclick = ev => {
+    if(document.getElementById("menu")){ closeMenu(); return; }
+    openMenu(ev.currentTarget, m => menuItem(m, "Fork: continue as a new conversation",
+      "claude --resume --fork-session: a new conversation that starts from this one; this one stays as it is",
+      () => forkSession(ctx.slug, s.id)), "Continue");
+  };
+  const cbtn = head.querySelector("#btnChanges");
+  if(cbtn) cbtn.onclick = () => openChanges(projPath(ctx.slug));
 
   const V = {s, ctx, head, depth: 0, turns: groupTurns(s.entries), turnEls: [], rendered: 0,
              rows: new Map(), open: new Set(), expanded: new Set(), navPos: {}};
@@ -2187,6 +2341,12 @@ function renderTurn(V, k){
   const {s, ctx} = V, t = V.turns[k];
   const box = document.createElement("div"); box.className = "turn";
   const keep = (i, el) => { el.dataset.i = i; V.rows.set(i, el); return el; };
+  if(s.entries.slice(t.start, t.end).some(isCompaction)){
+    const m = document.createElement("div"); m.className = "compactmark"; m.setAttribute("role", "note");
+    m.innerHTML = `<b>Context compacted here</b><span>From now on Claude works from a summary of
+      everything above. Ember still shows all of it.</span>`;
+    box.appendChild(m);
+  }
   if(t.prompt != null) box.appendChild(keep(t.prompt, renderEntry(s.entries[t.prompt], ctx, 0)));
   const first = t.prompt != null ? t.prompt + 1 : t.start;
   if(first >= t.end) return box;
@@ -2326,7 +2486,7 @@ function renderRow(V, i){
     on ? V.open.add(i) : V.open.delete(i);
   };
   head.onclick = () => el._open(!el.classList.contains("openx"));
-  if(V.open.has(i)) el._open(true);
+  if(V.open.has(i) || (TLF.edits && isEdit(e))) el._open(true);
   return el;
 }
 function rowBody(e){
@@ -2349,10 +2509,18 @@ function toolBody(e){
   body.appendChild(bar);
   const inp = document.createElement("pre");
   inp.textContent = JSON.stringify(e.input, null, 2);
-  body.appendChild(inp);
-  if(e.patch) body.appendChild(renderPatch(e.patch, e.file_path));
-  else if(e.name==="Edit" && e.input && e.input.old_string !== undefined)
-    body.appendChild(renderEditFallback(e.input));
+  // an edit leads with its diff; the raw input (old and new strings again) folds below
+  // (a Write that creates a file records an empty patch: its content is the diff)
+  const diff = e.patch && e.patch.length ? renderPatch(e.patch, e.file_path)
+    : e.name === "Write" && e.write_type === "create" && !e.is_error && e.input && typeof e.input.content === "string"
+      ? renderNewFile(e.input.content, e.file_path || e.input.file_path)
+    : e.name === "Edit" && e.input && e.input.old_string !== undefined ? renderEditFallback(e.input) : null;
+  if(diff){
+    body.appendChild(diff);
+    const d = document.createElement("details"); d.className = "rinput";
+    const sm = document.createElement("summary"); sm.textContent = "input";
+    d.append(sm, inp); body.appendChild(d);
+  } else body.appendChild(inp);
   if(e.result){
     const cap = document.createElement("div");
     cap.style.cssText="font-size:11px;color:var(--dim);margin-top:6px"; cap.textContent="result";
@@ -2385,7 +2553,7 @@ function nextIndex(V, key, pred, dir){
   const E = V.s.entries, n = E.length, from = V.navPos[key] ?? (dir > 0 ? -1 : n);
   for(let k = 1; k <= n; k++){
     const i = ((from + dir * k) % n + n) % n;
-    if(pred(E[i])){ V.navPos[key] = i; return i; }
+    if(pred(E[i], i, E)){ V.navPos[key] = i; return i; }
   }
   return -1;
 }
@@ -2395,9 +2563,18 @@ function showKind(k){
   TLF.steps = true; TLF[k] = true; applyFilters();
 }
 function jumpNav(V, kind, dir){
-  showKind(kind === "agent" ? "agents" : "tools");
+  if(kind !== "compact") showKind(kind === "agent" ? "agents" : "tools");
   const i = nextIndex(V, kind, NAV[kind], dir);
-  if(i >= 0) jumpTo(V, i, kind === "error");
+  if(i < 0) return;
+  // a compaction: its landmark above the turn, whatever the filters hide
+  const k = turnOf(V.turns, i);
+  if(kind === "compact"){
+    while(V.rendered <= k) renderChunk(V);
+    const mark = V.turnEls[k].querySelector(".compactmark");
+    if(mark){ mark.scrollIntoView({block: "center"}); mark.classList.add("flash");
+              setTimeout(() => mark.classList.remove("flash"), 2500); return; }
+  }
+  jumpTo(V, i, kind === "error");
 }
 // a tool chip in the Context panel: the next call of that tool
 function jumpTool(V, name, chip){
@@ -2421,7 +2598,8 @@ document.addEventListener("keydown", e => {
   if(!e.target.closest("#cell-main") || e.target.closest("input, textarea, select, [contenteditable], dialog")) return;
   const k = e.key.toLowerCase(), dir = e.shiftKey ? -1 : 1;
   if(k === "j" || k === "k") jumpTurn(VIEW, k === "j" ? 1 : -1);
-  else if(k === "e" || k === "a" || k === "s") jumpNav(VIEW, {e: "error", a: "agent", s: "skill"}[k], dir);
+  else if(k === "e" || k === "a" || k === "s" || k === "c")
+    jumpNav(VIEW, {e: "error", a: "agent", s: "skill", c: "compact"}[k], dir);
   else return;
   e.preventDefault();
 });
@@ -2716,6 +2894,23 @@ function renderPatch(hunks, filePath){
       box.appendChild(d);
     }
   }
+  return box;
+}
+const NEWFILE_MAX_LINES = 2000;
+function renderNewFile(content, filePath){
+  const box = document.createElement("div"); box.className = "diff";
+  if(filePath){ const h = document.createElement("div"); h.className = "hunk"; h.textContent = filePath + " (new file)"; box.appendChild(h); }
+  // a long input is shortened in the timeline: say so, not as a line of the file
+  const cut = content.match(/\n… \[truncated, [\d,]+ chars total\]$/);
+  if(cut) content = content.slice(0, cut.index);
+  const lines = content.split("\n");
+  for(const l of lines.slice(0, NEWFILE_MAX_LINES)){
+    const d = document.createElement("div"); d.className = "ln add"; d.textContent = "+" + l; box.appendChild(d); }
+  if(lines.length > NEWFILE_MAX_LINES){
+    const d = document.createElement("div"); d.className = "ln hunk";
+    d.textContent = `… ${lines.length - NEWFILE_MAX_LINES} more lines in the input below`; box.appendChild(d); }
+  if(cut){ const d = document.createElement("div"); d.className = "ln hunk";
+    d.textContent = "… the rest of the file is cut from this view" + cut[0].replace(/^\n…/, ""); box.appendChild(d); }
   return box;
 }
 function renderEditFallback(input){
@@ -3213,8 +3408,73 @@ function menuItem(m, text, title, fn, mono){
 /* Ask where to start a session instead of silently using $HOME. The projects
    in the sidebar ARE the folders sessions get started in, so they are the
    candidate list; "browse" hands off to the Files pane for anything else. */
+// a new conversation that starts where this one is; the original stays as it is
+function forkSession(slug, id){
+  openTerm("resume", {project: slug, session: id, options: {fork: true},
+                      label: "fork · " + (projName(slug) || id.slice(0, 8))});
+}
+
+/* ---------- new-chat options ----------------------------------------------
+   Model, effort, permission mode and a git worktree, remembered per browser
+   and sent with every new chat. The server checks each value against the
+   CLI's own choices; empty = Claude Code's default. */
+const CHAT_OPTS = {
+  model: ["Model", [["", "default model"], ["opus", "Opus"], ["sonnet", "Sonnet"], ["haiku", "Haiku"], ["fable", "Fable"]]],
+  effort: ["Effort", [["", "default effort"], ["low", "low effort"], ["medium", "medium effort"], ["high", "high effort"],
+                      ["xhigh", "extra-high effort"], ["max", "max effort"]]],
+  permission_mode: ["Permissions", [["", "default permissions"], ["manual", "ask first"], ["acceptEdits", "accept edits"],
+                                    ["plan", "plan first"], ["auto", "auto"], ["bypassPermissions", "bypass (no prompts)"]]],
+};
+function chatOpts(){
+  try{ const o = JSON.parse(lsGet("ember-chatopts") || "{}"); return o && typeof o === "object" ? o : {}; }catch(e){ return {}; }
+}
+// a task Ember starts with a prompt (figure feedback, a review) works on files
+// in THIS folder, never in a fresh worktree, and asks before acting whatever
+// permission mode new chats use
+function chatOptsFor(opts){
+  const o = chatOpts();
+  if(opts.prompt){
+    delete o.worktree;
+    // a task Ember starts asks before acting: only "ask first" or "plan first" carry over
+    if(!["manual", "plan"].includes(o.permission_mode)) delete o.permission_mode;
+  }
+  return o;
+}
+function chatOptsLabel(o){
+  const parts = Object.entries(CHAT_OPTS).map(([k, [, ch]]) => o[k] ? (ch.find(c => c[0] === o[k]) || [, o[k]])[1] : null);
+  if(o.worktree) parts.push("worktree");
+  return parts.filter(Boolean).join(" · ");
+}
+function chatOptsHtml(o){
+  return `<div class="chatopts">` + Object.entries(CHAT_OPTS).map(([k, [label, ch]]) =>
+      `<select data-co="${k}" aria-label="${label} for new chats">${ch.map(([v, t]) =>
+        `<option value="${esc(v)}"${(o[k] || "") === v ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>`).join("")
+    + `<label title="claude --worktree: a separate git worktree, so parallel chats don't touch each other's files"><input type="checkbox" data-co="worktree"${o.worktree ? " checked" : ""}> own git worktree</label></div>`;
+}
+function wireChatOpts(box){
+  box.querySelectorAll("[data-co]").forEach(el => el.onchange = () => {
+    const o = chatOpts();
+    if(el.type === "checkbox") o.worktree = el.checked; else o[el.dataset.co] = el.value;
+    for(const k of Object.keys(o)) if(!o[k]) delete o[k];
+    lsSet("ember-chatopts", JSON.stringify(o));
+    if(o.permission_mode === "bypassPermissions" && el.dataset.co === "permission_mode")
+      toast("Bypass: Claude runs every command without asking. Use it in a folder you can throw away.", {kind: "warn"});
+  });
+}
+function openChatOpts(){
+  const box = $("#cobody");
+  box.innerHTML = chatOptsHtml(chatOpts());
+  wireChatOpts(box);
+  showDialog($("#chatopts"));
+}
+modal($("#chatopts"));
+$("#coclose").onclick = () => $("#chatopts").close();
+$("#chatopts").addEventListener("close", () => { if(state.layout === "home") renderHome(); });
+
 function pickClaudeFolder(anchor){
   openMenu(anchor, m => {
+    menuItem(m, "Options: " + (chatOptsLabel(chatOpts()) || "Claude Code's defaults") + " …",
+             "model, effort, permissions and worktree for new chats", openChatOpts);
     // the two non-project options sit at the top: the project list below can
     // run long enough to push anything after it out of reach
     menuItem(m, "~  home", String(fsHome || "~"),
@@ -3273,6 +3533,7 @@ function attachTerm(t, info, noFocus){
   t.label = t.label || info.label;
   // the folder this session actually runs in — the file explorer follows it
   t.cwd = info.cwd || t.cwd || null;
+  t.sid = info.sid || null;              // ties Live activity events to this tab
   t.fsPath = t.cwd;
   TM.terms.set(t.id, t);
   t.term.onData(d => sendInput(t, d));
@@ -3292,6 +3553,7 @@ async function openTerm(kind, opts = {}){
       headers:authHeaders({"Content-Type":"application/json"}),
       body: JSON.stringify({kind, project: opts.project, session: opts.session,
                             cwd: opts.cwd, prompt: opts.prompt,
+                            options: opts.options || (kind === "claude" ? chatOptsFor(opts) : undefined),
                             cols: term.cols, rows: term.rows})});
     info = await r.json();
     if(!r.ok) throw new Error(info.error || r.status);
@@ -3308,10 +3570,13 @@ async function openTerm(kind, opts = {}){
   }
   t.sentCols = term.cols; t.sentRows = term.rows;   // the size it was born with
   attachTerm(t, info);
+  for(const n of info.notes || []) toast(n, {kind: "warn"});
+
   if(kind !== "shell" && !lsGet("ember-tip-perm")){
     lsSet("ember-tip-perm", "1");
     toast("Type your message and press Enter to send it. " + GLOSS.permission[1], {sticky: true});
   }
+  return t;
 }
 
 /* After a reload the PTYs are still running on the server: give each a tab
@@ -3471,6 +3736,73 @@ async function closeTermAsk(id){
   announce("Terminal closed");
 }
 
+/* ---------- account profiles ---------------------------------------------
+   One Claude account per config folder: ~/.claude, or ~/.claude-<name> for
+   another (CLAUDE_CONFIG_DIR). Ember shows one profile at a time; switching
+   reloads the page, and new terminals belong to the profile on screen.
+   Terminals already open keep the account they started with. */
+let PROF = null;
+async function loadProfiles(){
+  try{ PROF = await api("/api/profiles"); }catch(e){ return; }
+  const cur = PROF.profiles.find(x => x.active), b = $("#btnAccount");
+  b.hidden = PROF.profiles.length < 2 && (!cur || cur.name === "default");
+  b.textContent = "Account" + (cur && cur.name !== "default" ? ": " + cur.name : "");
+  if(cur && cur.email) b.title = `Claude account on screen: ${cur.email} (${cur.path})`;
+}
+function pickProfile(anchor){
+  openMenu(anchor, m => {
+    for(const x of (PROF && PROF.profiles) || [])
+      menuItem(m, (x.active ? "✓ " : "\u2003") + x.name + (x.email ? " · " + x.email : ""), x.path,
+               () => { if(!x.active) switchProfile(x.path); });
+    menuItem(m, "New account profile…", "its own sign-in, settings and chats", newProfile);
+  }, "Account");
+}
+async function switchProfile(path){
+  try{ await api("/api/profile", {path}); }
+  catch(e){ toast("Could not switch: " + e.message, {kind: "err"}); return; }
+  location.hash = "";
+  location.reload();
+}
+function newProfile(){
+  const d = $("#newprof"), inp = $("#npname");
+  inp.value = "";
+  showDialog(d);
+  inp.focus();
+}
+async function createProfile(){
+  const name = $("#npname").value.trim().toLowerCase();
+  if(!/^[a-z0-9][a-z0-9_-]{0,30}$/.test(name) || name === "default"){
+    toast("A name is lowercase letters, digits, - or _ (not “default”).", {kind: "err"}); return;
+  }
+  try{ await api("/api/profile", {create: name}); }
+  catch(e){ toast("Could not create it: " + e.message, {kind: "err"}); return; }
+  $("#newprof").close();
+  lsSet("ember-signin", name);           // after the reload: a terminal to sign in
+  location.hash = "";
+  location.reload();
+}
+modal($("#newprof"));
+$("#npcancel").onclick = () => $("#newprof").close();
+$("#npok").onclick = createProfile;
+$("#npname").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); createProfile(); } });
+// another tab or the app window switched profile: this page's lists are stale
+poll(async () => {
+  if(!PROF) return;
+  let r;
+  try{ r = await api("/api/profiles"); }catch(e){ return; }
+  if(r.active !== PROF.active){
+    PROF.active = r.active;              // say it once
+    if(GD.comments.length || $("#gd").open){
+      toast("Ember switched to another account in another window. Reload when your review is sent.",
+            {kind: "warn", sticky: true, action: {label: "Reload", run: () => location.reload()}});
+      return;
+    }
+    toast("Ember switched to another account in another window: reloading.", {kind: "warn"});
+    setTimeout(() => location.reload(), 1500);
+  }
+}, 30000);
+$("#btnAccount").onclick = ev => { if(document.getElementById("menu")) closeMenu(); else pickProfile(ev.currentTarget); };
+
 $("#btnQuit").onclick = async () => {
   const n = TM.terms.size;
   if(!await ask("Quit Ember?", n
@@ -3501,16 +3833,28 @@ $("#btnClaudeHome").onclick = () => {
 window.addEventListener("resize", fitActive);
 
 /* send text into the active terminal (opens a shell first if none) */
+/* A Claude tab showing a permission prompt reads a typed digit as an answer
+   ("2" = don't ask again). Ember types its prompts (figure feedback, a
+   review) only into a tab that is not waiting: by its session, or, for a tab
+   whose session is unknown, by any session waiting in its folder. */
+function tabWaiting(t){
+  if(!t || t.kind === "shell") return false;
+  if(t.sid) return !!(EV.sess[t.sid] && EV.sess[t.sid].state === "waiting");
+  return Object.values(EV.sess).some(x => x.state === "waiting" && x.cwd && t.cwd && normPath(x.cwd) === normPath(t.cwd));
+}
+const WAITING_MSG = "Claude is waiting for an answer in that terminal: answer it first, then send again.";
 async function termInsert(text, cwd){
   let t = TM.terms.get(TM.active);
+  if(tabWaiting(t)){ toast(WAITING_MSG, {kind: "warn"}); return false; }
   if(!t || t.dead){
     await openTerm("shell", {cwd, label: "shell · " + (baseName(cwd) || "~")});
     await new Promise(r => setTimeout(r, 700));
     t = TM.terms.get(TM.active);
     if(!t) return;
   }
-  sendInput(t, text);
+  const ok = await sendInput(t, text);
   t.term.focus();
+  return ok;
 }
 
 /* ---------- RStudio-style maximize per pane ---------- */
@@ -3777,6 +4121,32 @@ async function openUsageHistory(days){
   catch(e){ body.innerHTML = `<div class="vizempty">Could not read the history: ${esc(e.message)}</div>`; }
 }
 
+/* Where the last 7 days went: output by who wrote it, and the context MCP
+   servers, skills and tools put in the window (estimated, ~4 chars a token).
+   Loaded on demand: the first scan reads a week of transcripts. */
+let USRC = null;
+function sourcesHtml(d){
+  const bars = (rows, val, max) => rows.map(r => `<div class="srow"><span>${esc(r.label)}</span><b class="num">${fmtTok(val(r))}</b>
+      <i style="width:${Math.max(2, Math.round(100 * val(r) / (max || 1)))}%"></i></div>`).join("");
+  const W = d.writers.map(w => ({label: w.name, v: w.output}));
+  const KIND = {mcp: "MCP", skill: "Skill", tool: "Tool"};
+  const C = d.context.slice(0, 12).map(c => ({label: `${KIND[c.kind] || c.kind}: ${c.name} · ${c.calls}×`, v: c.tok}));
+  return `<div class="uhead">Output, last ${d.days} days</div>`
+    + (W.length ? bars(W, r => r.v, W[0].v) : `<div class="note">No output in that window.</div>`)
+    + `<div class="uhead" style="margin-top:10px">Context added by tools</div>`
+    + (C.length ? bars(C, r => r.v, C[0].v) : `<div class="note">No tool results in that window.</div>`)
+    + `<div class="note">From the transcripts on this machine. Context is an estimate (~4 characters a token) of what each
+       result or skill put in the window; it is paid again on every later request until a compaction. Claude Code's
+       /usage has the official breakdown.</div>`;
+}
+async function loadSources(){
+  const box = $("#usrc");
+  if(box) box.innerHTML = `<div class="note">Reading the last 7 days…</div>`;
+  try{ USRC = await api("/api/usage/sources?days=7"); }
+  catch(e){ if(box) box.innerHTML = `<div class="note">Could not read them: ${esc(e.message)}</div>`; return; }
+  const b2 = $("#usrc");
+  if(b2) b2.innerHTML = sourcesHtml(USRC);
+}
 async function refreshUsage(){
   try{
     const u = await api("/api/usage");
@@ -3829,12 +4199,15 @@ async function refreshUsage(){
       <svg id="sparkline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg>
       <div class="xadv"><div style="margin-top:8px;color:var(--dim);font-size:11px">by model, 7 days</div>${models}</div>
       <button class="copy" id="uHist" style="margin:8px 0 0;font-size:11.5px" title="output tokens per day, by project and model">History (30–180 days)</button>
+      <button class="copy" id="uSrc" style="margin:8px 0 0;font-size:11.5px" title="output by your chats and each kind of subagent; what MCP servers, skills and tools added to the context">Where the week went</button>
+      <div id="usrc" class="usrc">${USRC ? sourcesHtml(USRC) : ""}</div>
       <div style="margin-top:10px;color:var(--dim);font-size:10.5px">Computed from local transcripts (output tokens, deduped by request).${o
         ? " The official limits above come from Claude Code's statusline, " + fmtDur(Math.max(0, nowS - o.at)) + " ago."
         : addonInstalled("live-limits")
           ? " Official 5-hour and 7-day figures show here while a Claude session is running (Live limits add-on)."
           : ` The <a id="uLive" role="button" tabindex="0">Live limits</a> add-on adds the official 5-hour and 7-day figures.`}</div>`;
     $("#uHist").onclick = () => openUsageHistory(90);
+    $("#uSrc").onclick = loadSources;
     const ul = $("#uLive");
     if(ul) ul.onclick = () => openAddons("live-limits");
     $("#blockreset").textContent = o && o.five_hour && o.five_hour.resets_at
@@ -4270,6 +4643,7 @@ async function rvSend(){
       + `then set each addressed comment's status to "resolved" in that JSON.`;
   const t = TM.terms.get(TM.active);
   if(t && !t.dead && (t.kind === "claude" || t.kind === "resume")){
+    if(tabWaiting(t)){ toast(WAITING_MSG, {kind: "warn"}); return; }
     closeReview();
     termInsert(prompt);
     return;
@@ -4288,6 +4662,223 @@ $("#rvprev").onclick = () => rvGoto(RV.page - 1);
 $("#rvnext").onclick = () => rvGoto(RV.page + 1);
 $("#rvclose").onclick = closeReview;
 $("#rvsend").onclick = rvSend;
+
+/* ---------- review changes -------------------------------------------------
+   The project's working tree against HEAD (uncommitted work, new files
+   included) or against where it left a local branch. Click a line to comment
+   on it; Send to Claude types every comment, as ONE line (a newline would
+   submit half of it), into the active Claude tab: you press Enter. Comments
+   live in the dialog only. */
+const GD = {cwd: null, data: null, file: 0, comments: [], editing: null, cursor: null};
+// pure (tests/test_frontend.js lifts it)
+function reviewPrompt(comments, label, root){
+  // one line, and nothing the terminal would read as a key (ESC from a coloured log line…)
+  const one = s => String(s || "").replace(/[\x00-\x1f\x7f]/g, " ").replace(/\s+/g, " ").trim();
+  const items = comments.map((c, i) => `(${i + 1}) ${one(c.path)}:${c.line}${c.side === "old" ? " (removed line)" : ""} `
+    + `[${one(c.code).slice(0, 80)}] ${one(c.text)}`);
+  return `Code review: ${comments.length} comment${comments.length === 1 ? "" : "s"} on the ${one(label)} in ${one(root)}. `
+    + "Address each one, then say briefly what you changed for each number. " + items.join(" ");
+}
+async function openChanges(cwd){
+  if(!cwd){ toast("This conversation has no folder to look at.", {kind: "err"}); return; }
+  if(GD.comments.length && GD.cwd !== cwd
+     && !await ask("Discard your review comments?", `${GD.comments.length} comment(s) on ${baseName(GD.cwd)} were not sent.`, "Discard", true)) return;
+  if(GD.cwd !== cwd){ GD.comments = []; GD.base = ""; }
+  GD.cwd = cwd; GD.file = 0; GD.editing = null;
+  showDialog($("#gd"));
+  await loadChanges(GD.base || "");
+}
+async function loadChanges(base){
+  GD.base = base;
+  $("#gddiff").textContent = "Reading the changes…";
+  $("#gdfiles").innerHTML = "";
+  let d;
+  try{ d = await api(`/api/gitdiff?cwd=${encodeURIComponent(GD.cwd)}&base=${encodeURIComponent(base)}`); }
+  catch(e){ $("#gddiff").textContent = "Could not read the changes: " + e.message; return; }
+  GD.data = d;
+  $("#gdtitle").textContent = "Review changes · " + (baseName(GD.cwd) || GD.cwd);
+  if(!d.git){
+    $("#gdbase").hidden = true; $("#gdsum").textContent = "";
+    $("#gddiff").textContent = "This folder is not a git repository, so there is nothing to compare against.";
+    return;
+  }
+  const sel = $("#gdbase");
+  sel.hidden = false;
+  sel.innerHTML = `<option value="">Uncommitted changes</option>` + d.branches.filter(b => b !== d.current)
+    .map(b => `<option value="${esc(b)}"${b === base ? " selected" : ""}>Since ${esc(b)} (everything on ${esc(d.current)})</option>`).join("");
+  const add = d.files.reduce((a, f) => a + f.added, 0), del = d.files.reduce((a, f) => a + f.removed, 0);
+  $("#gdsum").innerHTML = d.files.length ? `${d.files.length} file${d.files.length === 1 ? "" : "s"} · <span class="add">+${add}</span> <span class="del">−${del}</span>${d.truncated ? " · cut short (very large diff)" : ""}` : "";
+  GD.file = Math.min(GD.file, Math.max(0, d.files.length - 1));
+  GD.cursor = gdFirstLine(d.files[GD.file]);
+  renderGdFiles(); renderGdDiff();
+}
+// the next commentable line (hunk headers skipped), n lines away; from null =
+// the first (dir 1) or last (dir -1). Pure: tests/test_frontend.js lifts it
+function gdStep(lines, from, dir, n = 1){
+  let k = from == null ? (dir > 0 ? -1 : lines.length) : from, last = from;
+  for(let moved = 0; moved < n;){
+    k += dir;
+    if(k < 0 || k >= lines.length) break;
+    if(lines[k].t !== "@"){ last = k; moved++; }
+  }
+  return last;
+}
+const gdFirstLine = f => f && f.lines && f.lines.length ? gdStep(f.lines, null, 1) : null;
+function renderGdFiles(){
+  const d = GD.data, ul = $("#gdfiles");
+  ul.innerHTML = d.files.map((f, i) => {
+    const n = GD.comments.filter(c => c.path === f.path).length;
+    return `<li role="option" id="gdf-${i}" data-f="${i}" tabindex="${i === GD.file ? 0 : -1}" aria-selected="${i === GD.file}" title="${esc(f.path)} (${esc(f.status)})">
+      <span><bdi>${esc(f.path)}</bdi></span>${n ? `<b aria-label="${n} comment${n === 1 ? "" : "s"}">${n}✎</b>` : ""}<span class="add">+${f.added}</span><span class="del">−${f.removed}</span></li>`;
+  }).join("");
+}
+const GD_SKIP = {
+  symlink: () => "A symbolic link: Ember does not follow it.",
+  sensitive: () => "A file whose name suggests secrets (keys, .env…): not shown.",
+  size: f => `A large new file (${fmtBytes(f.size || 0)}): not shown. Open it from the Files pane.`,
+  budget: () => "Not loaded: the new files before it already fill this review. Open it from the Files pane.",
+};
+function renderGdDiff(){
+  const box = $("#gddiff"), f = GD.data.files[GD.file];
+  box.removeAttribute("aria-activedescendant");
+  if(!f){ box.textContent = GD.data.label === "uncommitted changes" ? "No uncommitted changes. Pick a branch above to see everything since it."
+                                                                    : "No changes against that branch."; return; }
+  box.setAttribute("aria-label", `Diff of ${f.path}. Arrow keys move between lines; Enter comments on the line.`);
+  if(f.skipped || f.binary || f.too_big){
+    box.textContent = f.skipped && GD_SKIP[f.skipped] ? GD_SKIP[f.skipped](f)
+      : f.binary ? "A binary file: no text diff." : "A large new file: not shown.";
+    return;
+  }
+  const mine = GD.comments.map((c, i) => [c, i]).filter(([c]) => c.path === f.path);
+  let h = "";
+  f.lines.forEach((l, k) => {
+    const cls = l.t === "+" ? "p" : l.t === "-" ? "m" : l.t === "@" ? "h" : "";
+    h += `<div class="gdl ${cls}${k === GD.cursor ? " cur" : ""}" id="gdl-${k}" data-k="${k}"${k === GD.cursor ? ' aria-current="true"' : ""}>`
+      + `<span class="ln">${l.old ?? ""}</span><span class="ln">${l.new ?? ""}</span><code>${esc(l.t === "@" ? l.text : l.t + l.text)}</code></div>`;
+    // matched by line number, not position: comments survive a change of base
+    for(const [c, i] of mine) if(c.side === "old" ? l.t === "-" && l.old === c.line : l.t !== "-" && l.t !== "@" && l.new === c.line)
+      h += `<div class="gdc"><span>${esc(c.text)}</span><button class="copy ibtn" data-del="${i}" aria-label="Delete this comment">✕</button></div>`;
+    if(GD.editing === k)
+      h += `<div class="gdc"><textarea id="gdtext" aria-label="Your comment on line ${l.new ?? l.old}" placeholder="What should change here? (⌘↵ adds it, Esc cancels)"></textarea>
+        <div style="display:flex;flex-direction:column;gap:4px"><button class="copy go" data-add="${k}">Add</button><button class="copy" data-cancel>Cancel</button></div></div>`;
+  });
+  box.innerHTML = h;
+  if(GD.cursor != null) box.setAttribute("aria-activedescendant", "gdl-" + GD.cursor);
+  const ta = $("#gdtext");
+  if(ta) ta.focus();
+  const n = GD.comments.length;
+  $("#gdcount").textContent = n ? `${n} comment${n === 1 ? "" : "s"} ready to send`
+                                : "Click a line, or move with ↑ ↓ and press Enter, to comment on it.";
+  $("#gdsend").disabled = !n;
+}
+// move the line cursor without rebuilding the diff (files can run to thousands of lines)
+function gdCursor(k){
+  if(k == null) return;
+  const box = $("#gddiff"), old = box.querySelector(".gdl.cur"), el = document.getElementById("gdl-" + k);
+  if(old){ old.classList.remove("cur"); old.removeAttribute("aria-current"); }
+  GD.cursor = k;
+  if(!el) return;
+  el.classList.add("cur"); el.setAttribute("aria-current", "true");
+  box.setAttribute("aria-activedescendant", el.id);
+  el.scrollIntoView({block: "nearest"});
+  const l = GD.data.files[GD.file].lines[k];
+  announce(`line ${l.new ?? l.old}${l.t === "+" ? ", added" : l.t === "-" ? ", removed" : ""}: ${l.text.trim() || "blank"}`);
+}
+function gdPick(i, focusList){
+  GD.file = i; GD.editing = null;
+  GD.cursor = gdFirstLine(GD.data.files[i]);
+  renderGdFiles(); renderGdDiff();
+  $("#gddiff").scrollTop = 0;
+  const li = document.getElementById("gdf-" + i);
+  if(li && focusList){ li.focus(); li.scrollIntoView({block: "nearest"}); }
+}
+function gdAdd(k){
+  const ta = $("#gdtext"), f = GD.data.files[GD.file], l = f && f.lines[k];
+  const text = ta ? ta.value.trim() : "";
+  if(!l || !text) return;
+  GD.comments.push({path: f.path, line: l.new ?? l.old, side: l.new == null ? "old" : "new", code: l.text, text});
+  GD.editing = null;
+  renderGdFiles(); renderGdDiff();
+  $("#gddiff").focus();
+}
+$("#gdfiles").onclick = ev => {
+  const li = ev.target.closest("[data-f]");
+  if(li) gdPick(+li.dataset.f, true);
+};
+$("#gdfiles").addEventListener("keydown", ev => {
+  const n = GD.data ? GD.data.files.length : 0;
+  if(!n || !ev.target.closest("[data-f]")) return;
+  let i = GD.file;
+  if(ev.key === "ArrowDown") i = Math.min(n - 1, i + 1);
+  else if(ev.key === "ArrowUp") i = Math.max(0, i - 1);
+  else if(ev.key === "Home") i = 0;
+  else if(ev.key === "End") i = n - 1;
+  else if(ev.key === "Enter" || ev.key === "ArrowRight"){ ev.preventDefault(); $("#gddiff").focus(); return; }
+  else return;
+  ev.preventDefault();
+  if(i !== GD.file) gdPick(i, true);
+});
+$("#gddiff").onclick = ev => {
+  const del = ev.target.closest("[data-del]"), add = ev.target.closest("[data-add]");
+  if(del){ GD.comments.splice(+del.dataset.del, 1); renderGdFiles(); renderGdDiff(); $("#gddiff").focus(); return; }
+  if(add){ gdAdd(+add.dataset.add); return; }
+  if(ev.target.closest("[data-cancel]")){ GD.editing = null; renderGdDiff(); $("#gddiff").focus(); return; }
+  if(ev.target.closest(".gdc")) return;
+  const row = ev.target.closest(".gdl");
+  if(!row || row.classList.contains("h") || (window.getSelection && String(window.getSelection()))) return;
+  GD.cursor = GD.editing = +row.dataset.k;
+  renderGdDiff();
+};
+$("#gddiff").addEventListener("keydown", ev => {
+  if(ev.target.id === "gdtext"){
+    if(ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)){ ev.preventDefault(); gdAdd(GD.editing); }
+    else if(ev.key === "Escape"){ ev.preventDefault(); ev.stopPropagation(); GD.editing = null; renderGdDiff(); $("#gddiff").focus(); }
+    return;
+  }
+  const f = GD.data && GD.data.files[GD.file];
+  if(ev.target.id !== "gddiff" || !f || !f.lines || !f.lines.length || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  const L = f.lines, K = ev.key;
+  let to;
+  if(K === "ArrowDown" || K === "j") to = gdStep(L, GD.cursor, 1);
+  else if(K === "ArrowUp" || K === "k") to = gdStep(L, GD.cursor, -1);
+  else if(K === "PageDown") to = gdStep(L, GD.cursor, 1, 20);
+  else if(K === "PageUp") to = gdStep(L, GD.cursor, -1, 20);
+  else if(K === "Home") to = gdStep(L, null, 1);
+  else if(K === "End") to = gdStep(L, null, -1);
+  else if((K === "Enter" || K === "c") && GD.cursor != null){ ev.preventDefault(); GD.editing = GD.cursor; renderGdDiff(); return; }
+  else if(K === "ArrowLeft"){ ev.preventDefault(); const li = document.getElementById("gdf-" + GD.file); if(li) li.focus(); return; }
+  else return;
+  ev.preventDefault();
+  gdCursor(to);
+});
+$("#gdbase").onchange = ev => loadChanges(ev.target.value);
+modal($("#gd"));
+$("#gdclose").onclick = () => $("#gd").close();
+$("#gdsend").onclick = async () => {
+  if(!GD.comments.length || !GD.data) return;
+  const prompt = reviewPrompt(GD.comments, GD.data.label, GD.data.root);
+  // a Claude tab in that folder: the active one, else the first; typed, you press Enter
+  const inFolder = t => t && !t.dead && t.kind !== "shell" && t.cwd && normPath(t.cwd) === normPath(GD.cwd);
+  const act = TM.terms.get(TM.active);
+  const t = inFolder(act) ? act : [...TM.terms.values()].find(inFolder);
+  if(t && tabWaiting(t)){ toast(WAITING_MSG, {kind: "warn"}); return; }   // the dialog stays open
+  $("#gd").close();
+  if(t){
+    activateTerm(t.id);
+    const typed = await sendInput(t, prompt);
+    t.term.focus();
+    if(!typed){ toast("The review could not be typed: your comments are kept.", {kind: "err"}); return; }
+    GD.comments = [];
+    toast("The review is typed in the Claude terminal: press Enter to send it.", {kind: "ok"});
+    return;
+  }
+  // no Claude in that folder: a new session starts with the review as its first message
+  const started = await openTerm("claude", {cwd: GD.cwd, prompt, label: "claude · review " + (baseName(GD.cwd) || "")});
+  if(started){
+    GD.comments = [];
+    toast("Started Claude in " + (baseName(GD.cwd) || GD.cwd) + " with your review.", {kind: "ok"});
+  }                                   // on failure the comments stay for another try
+};
 
 /* ---------- plan pane ----------------------------------------------------
    Reads a markdown checklist out of the selected project (.claude/plan.md,
@@ -4636,10 +5227,16 @@ function cpActions(){
   if(pj) add(`New claude terminal in ${pn}`, () => openTerm("claude", {project: pj, label: "claude · " + pn}));
   add("New claude terminal in home folder", () => openTerm("claude", {label: "claude · ~"}));
   add("New shell", () => openTerm("shell", {label: "shell · ~"}));
+  add("Options for new chats (model, effort, permissions, worktree)…", openChatOpts);
+  {
+    const at = TM.terms.get(TM.active), cwd = (at && !at.dead && at.cwd) || (pj && projPath(pj)) || planCwd;
+    if(cwd) add(`Review changes in ${baseName(cwd) || cwd}`, () => openChanges(cwd));
+  }
   if(state.active){
     const [slug, id] = state.active.split("/");
     add("Resume current session in CLI", () => openTerm("resume",
       {project: slug, session: id, label: "resume · " + (projName(slug) || id.slice(0, 8))}));
+    add("Fork current session (continue as a new conversation)", () => forkSession(slug, id));
   }
   PANES.forEach((id, i) => add(`Focus ${PANE_NAMES[i]} pane`, () => focusPane(id), K("⌃" + (i + 1))));
   add(maxedCell ? "Restore all panes" : "Maximize focused pane", () => {
@@ -4659,6 +5256,8 @@ function cpActions(){
     if(state.layout !== l) add(`Layout: ${name}`, () => setLayout(l));
   add("Toggle session header", toggleHeader);
   add("Open add-ons", () => openAddons());
+  add("Switch Claude account (profile)…", () => { loadProfiles().then(() => pickProfile($("#search"))); });
+  add("New account profile…", newProfile);
   if(lastSearch) add(`Re-run search “${lastSearch.q}”`, () => runSearch(lastSearch.q, lastSearch.project));
   add("Go to session…", () => cpSet("@"), K("⌘P"), true);
   add("Search transcripts…", () => cpSet("#"), K("⌘⇧F"), true);
@@ -4851,7 +5450,7 @@ function openKeys(){
     .concat([["?", "This sheet"], ["Esc", "Close an overlay, then restore a maximized pane"],
              ["↑ ↓ → ← Enter", "Move in the sidebar tree; c starts claude in a project"],
              ["j / k", "Session timeline: next / previous turn"],
-             ["e  a  s", "Session timeline: next error, agent, skill (with ⇧: previous)"],
+             ["e  a  s  c", "Session timeline: next error, agent, skill, compaction (with ⇧: previous)"],
              ["← →", "Inspector tabs (Workspace): move between Plan, Usage, Output, Files"],
              ["Delete", "Close the focused terminal tab"]]);
   $("#keystable").innerHTML = rows.map(([k, l]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(l)}</td></tr>`).join("");
@@ -5394,6 +5993,17 @@ async function pollEvents(){
   const changed = JSON.stringify(now) !== JSON.stringify(EV.now);
   EV.now = now;
   if(changed) renderTree();
+  const before = EV.sess;
+  EV.sess = applySessEvents(EV.sess, r.events, Date.now());
+  // every permission event re-reads what is asked: a second prompt can follow the first
+  const asked = new Set(r.events.filter(e => e && e.session_id && (e.hook_event_name === "PermissionRequest"
+    || (e.hook_event_name === "Notification" && /permission/i.test(e.notification_type || "")))).map(e => e.session_id));
+  for(const [id, x] of Object.entries(EV.sess))
+    if(x.state === "waiting" && (asked.has(id) || !(before[id] && before[id].state === "waiting"))){
+      x.pending = null;
+      fetchPending(id);
+    }
+  renderNeeds();
   alerts.forEach(waitingToast);
   notifyEvents(r.events);
 }
@@ -5409,6 +6019,104 @@ function waitingToast(e){
   toast(`${name} is waiting for you`,
         {kind: "warn", action: run ? {label: term ? "Go to terminal" : "Open", run} : undefined});
 }
+
+/* ---------- needs you --------------------------------------------------------
+   Above the projects: sessions waiting on a permission prompt (with what they
+   ask, read from the transcript: the hook keeps metadata only) and sessions
+   where it is your turn, for an hour. Click one to go to its terminal, or to
+   open the conversation when it runs elsewhere. */
+const NEED_DONE_MS = 3600e3;
+// "1" answers Yes only on a permission prompt: on a question or a plan
+// approval it would pick an option the user has not read. Offered only when
+// what Ember shows is what the terminal asks: a main-conversation prompt
+// whose tool the hook and the transcript agree on
+const NOT_A_YES = /^(AskUserQuestion|ExitPlanMode)$/;
+// the request shown: the transcript's first open call, only when it is the
+// tool the hook named (a subagent's or a mismatched one is not shown)
+const shownRequest = x => x.pending && !x.agent && x.pending.tool === x.tool ? x.pending : null;
+// open === 1: with two calls of one tool open, the terminal may be asking about either
+const canAllow = x => !!(x.perm && !x.agent && x.tool && shownRequest(x) && x.pending.open === 1
+  && !NOT_A_YES.test(x.tool) && !NOT_A_YES.test(x.pending.tool));
+// mcp__playwright__browser_click → playwright · browser_click
+const toolName = n => /^mcp__/.test(n || "") ? n.split("__").slice(1).join(" · ") : n || "";
+async function fetchPending(id, retry){
+  const x = EV.sess[id];
+  if(!x || x.state !== "waiting") return;
+  let r;
+  try{ r = await api(`/api/pending?cwd=${encodeURIComponent(x.cwd || "")}&session=${encodeURIComponent(id)}`); }
+  catch(e){ return; }
+  const y = EV.sess[id];
+  if(!y || y.state !== "waiting") return;
+  if(r.pending){ y.pending = r.pending; renderNeeds(); }
+  else if(!retry) setTimeout(() => fetchPending(id, true), 1500);   // the transcript lags the hook a little
+}
+/* The Ember tab running a session. exact: the tab was started with that
+   session id. Otherwise only a claude tab whose session Ember does not know
+   (a fork) can be it, and only when it is the one such tab in that folder:
+   a tab known to run another session never is. Allow once needs exact. */
+function termForSession(id, cwd){
+  const live = [...TM.terms.values()].filter(t => !t.dead && t.kind !== "shell");
+  const exact = live.find(t => t.sid === id);
+  if(exact) return {term: exact, exact: true};
+  const c = live.filter(t => !t.sid && t.cwd && cwd && normPath(t.cwd) === normPath(cwd));
+  return c.length === 1 ? {term: c[0], exact: false} : null;
+}
+function sessTitle(id, cwd){
+  const p = projectForCwd(state.projects, cwd || "");
+  const s = p && (state.sessions[p.slug] || []).find(x => x.id === id);
+  return {p, title: s ? cleanTitle(s.title) : null};
+}
+function renderNeeds(){
+  const box = $("#needs");
+  if(!box) return;
+  const now = Date.now();
+  const rows = Object.entries(EV.sess)
+    .filter(([, x]) => x.state === "waiting" || ((x.state === "done" || x.state === "error") && now - x.t < NEED_DONE_MS))
+    .sort((a, b) => (a[1].state === "waiting" ? 0 : 1) - (b[1].state === "waiting" ? 0 : 1) || b[1].t - a[1].t);
+  box.hidden = !EV.enabled || !rows.length;
+  if(box.hidden){ box.innerHTML = box._html = ""; return; }
+  const waiting = rows.filter(([, x]) => x.state === "waiting").length;
+  const clock = t => new Date(t).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+  const html = `<div class="label">${waiting ? `Waiting for you · ${waiting}` : "Your turn"}</div>` + rows.map(([id, x]) => {
+    const {title} = sessTitle(id, x.cwd), m = termForSession(id, x.cwd), shown = shownRequest(x);
+    const st = x.state === "waiting" ? (x.agent ? "a subagent needs permission" : "needs permission")
+             : x.state === "error" ? "stopped on an error" : "your turn since " + clock(x.t);
+    const q = x.state !== "waiting" ? "" : shown ? `${toolName(shown.tool)}: ${shown.brief}${shown.open > 1 ? ` (then ${shown.open - 1} more)` : ""}`
+            : x.tool ? toolName(x.tool) : "";
+    return `<div class="need ${x.state}" data-sid="${esc(id)}">
+      <button class="nmain" data-na="go" title="${m ? "go to its terminal" : "open the conversation"}">
+        <span class="nt"><b>${esc(sessionName(x.cwd))}</b><span class="ns">${esc(st)}</span></span>
+        ${title ? `<span class="nq" style="font-family:inherit">${esc(title)}</span>` : ""}
+        ${q ? `<span class="nq" title="${esc(q)}">${esc(q)}</span>` : ""}</button>
+      ${x.state === "waiting" && m && m.exact && canAllow(x) ? `<div class="na"><button class="btn" data-na="allow"
+        title="answers this prompt with 1 (Yes) in its terminal">Allow once</button></div>` : ""}</div>`;
+  }).join("");
+  if(box._html !== html){ box._html = html; box.innerHTML = html; }   // keeps focus when nothing changed
+}
+function needGo(id){
+  const x = EV.sess[id];
+  if(!x) return;
+  const m = termForSession(id, x.cwd);
+  if(m){ focusPane("cell-term"); activateTerm(m.term.id); return; }
+  const {p} = sessTitle(id, x.cwd);
+  if(p) (state.openProject === p.slug ? Promise.resolve() : toggleProject(p.slug)).then(() => openSession(p.slug, id));
+  else toast("That conversation is not in the projects on screen (another account?).", {kind: "warn"});
+}
+$("#needs").addEventListener("click", ev => {
+  const row = ev.target.closest(".need"), act = ev.target.closest("[data-na]");
+  if(!row || !act) return;
+  const id = row.dataset.sid;
+  if(act.dataset.na === "allow"){
+    const x = EV.sess[id], m = x && termForSession(id, x.cwd);
+    if(!m || !m.exact || !canAllow(x)) return;
+    sendInput(m.term, "1");
+    x.state = "working"; x.pending = null;
+    renderNeeds();
+    return;
+  }
+  needGo(id);
+});
+poll(renderNeeds, 60000);              // "your turn" rows age out after an hour
 
 /* ---------- OS notifications (Alerts, opt-in) ----------------------------------
    While Ember is in the background: a session waiting for you, or Claude
@@ -5551,6 +6259,7 @@ function endCardHtml(s){
   if(pl) h += `<div>Plan <b>${pl.done}/${pl.total}</b>${pl.ticked > 0 ? ` · <b>+${pl.ticked}</b> ticked this session` : ""}</div>`;
   h += `<div class="ecb"><button class="btn-primary" data-act="log" title="append a pre-filled entry to session_logs/ in the project">Add to session log</button>
       ${s.session_id ? '<button class="btn-quiet" data-act="resume" title="continue this conversation in a new terminal">Resume</button><button class="btn-quiet" data-act="open">Open</button>' : ""}
+      ${g && g.files.length ? '<button class="btn-quiet" data-act="changes" title="read the diff and send line comments to Claude">Review changes</button>' : ""}
       ${s.improve ? '<button class="btn-quiet" data-act="improve" title="the end-of-session /improve report">Retrospective</button>' : ""}</div>`;
   return h;
 }
@@ -5590,6 +6299,7 @@ async function showEndCard(id){
       if(a === "open") openSession(p.slug, s.session_id);
       else openTerm("resume", {project: p.slug, session: s.session_id, label: "resume · " + (projName(p.slug) || s.session_id.slice(0, 8))});
     }
+    else if(a === "changes") openChanges(s.cwd);
     else if(a === "improve"){
       vizTab("files");
       await loadFs(s.improve.path.replace(/[\\/][^\\/]+$/, ""));
@@ -5777,14 +6487,34 @@ function setupSteps(st){
     {ok: !missing.length, text: missing.length ? "Add what Ember uses" : "Ember's add-ons are installed",
      sub: missing.length ? missing.map(a => a.name).join(", ") + ": live activity and limits in Ember." : "",
      btn: `<button class="copy go" data-w="addons">Open add-ons</button>`},
+    retentionStep(st.retention),
   ];
+}
+/* Claude Code deletes transcripts older than cleanupPeriodDays (30 unless
+   set) each time it starts. Ember can only show what is still on disk. */
+const KEEP_DAYS = 3650;
+function retentionStep(days){
+  const n = days == null ? 30 : days, ok = n >= 365;
+  return {ok, text: ok ? `Chats are kept for ${n >= 730 ? Math.round(n / 365) + " years" : n + " days"}`
+                       : `Keep your chats: Claude Code deletes them after ${n} days`,
+    sub: ok ? "" : `Each time it starts, Claude Code removes conversations older than ${n} days (the cleanupPeriodDays setting), and Ember can only show what is still on disk. Keeping them for 10 years changes that one setting; a copy of settings.json is saved first.`,
+    btn: `<button class="copy go" data-w="retention">Keep them for 10 years</button>`};
+}
+async function keepChats(){
+  try{
+    await api("/api/retention", {days: KEEP_DAYS});
+    SETUP = await api("/api/setup");
+    toast("Chats are now kept for 10 years (cleanupPeriodDays = " + KEEP_DAYS + ")", {kind: "ok"});
+  }catch(e){ toast("Could not change settings.json: " + e.message, {kind: "err"}); return; }
+  renderWelcome();
+  if(state.layout === "home") renderHome();
 }
 const stepHtml = x => `<div class="wstep${x.ok ? "" : " todo"}">
     <span class="wico" aria-hidden="true">${x.ok ? "✓" : "○"}</span>
     <div class="wtxt">${x.text}${x.sub ? `<small>${esc(x.sub)}</small>` : ""}${!x.ok && x.btn ? x.btn : ""}</div></div>`;
 function wireSetup(box){
   box.querySelectorAll("[data-w]").forEach(b => b.onclick = () => ({
-    install: installClaude, chat: () => pickClaudeFolder(b), practice: startPractice,
+    install: installClaude, chat: () => pickClaudeFolder(b), practice: startPractice, retention: keepChats,
     tour: startTour, gloss: openGloss, addons: () => openAddons(),
     simple: () => { setSimple(true); startTour(); }, full: () => setSimple(false),
   })[b.dataset.w]());
@@ -6013,6 +6743,7 @@ async function loadHome(){
 const agoText = t => { const m = (Date.now() / 1000 - t) / 60;
   return m < 1 ? "just now" : m < 60 ? Math.round(m) + " min ago" : m < 48 * 60 ? Math.round(m / 60) + " h ago"
        : new Date(t * 1000).toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
+let HOME_OPTS_OPEN = false;      // Home re-renders every 30 s: keep the Options panel as left
 function renderHome(){
   const H = HOME || {recent: [], viz: []}, c = H.continue, main = $("#homemain"), side = $("#homeside");
   const projs = (state.projects || []).filter(p => isAbsPath(p.path));
@@ -6039,7 +6770,8 @@ function renderHome(){
         <option value="">Home folder (~)</option>
         ${projs.map((p, i) => `<option value="${esc(p.slug)}"${i === 0 && c ? " selected" : ""}>${esc(baseName(p.path))}</option>`).join("")}
       </select><button class="btn-primary" data-act="new">＋ New chat</button>
-      <button class="btn-quiet" data-act="browse">Browse…</button></div></section>`;
+      <button class="btn-quiet" data-act="browse">Browse…</button></div>
+    <details class="xadv" id="hopts"${HOME_OPTS_OPEN || chatOptsLabel(chatOpts()) ? " open" : ""}><summary style="cursor:pointer;color:var(--dim);font-size:12px;margin-top:10px">Options${chatOptsLabel(chatOpts()) ? ": " + esc(chatOptsLabel(chatOpts())) : ""}</summary>${chatOptsHtml(chatOpts())}</details></section>`;
   // the tour: above the recent chats until it has been taken once, then below
   const tour = `<section class="hcard" id="htour" aria-labelledby="htourl"><div class="label" id="htourl">Tour of the screen</div>
     <div class="htourimg"><img src="/assets/layout.svg" alt="The Workspace layout: top bar, sidebar of projects and chats,
@@ -6062,6 +6794,9 @@ function renderHome(){
   if(seen) h += tour;
   main.innerHTML = h;
   wireSetup(main);
+  wireChatOpts(main);
+  const ho = $("#hopts");
+  if(ho) ho.ontoggle = () => { HOME_OPTS_OPEN = ho.open; };
   homeTour();
 
   // right column
@@ -6183,6 +6918,13 @@ pollEvents();
 refreshUsage(); refreshViz(); refreshPlan(true);
 
 reattachTerms();
+loadProfiles().then(() => {
+  const name = lsGet("ember-signin");
+  if(!name) return;
+  try{ localStorage.removeItem("ember-signin"); }catch(e){}
+  openTerm("claude", {label: "sign in · " + name, options: {}});
+  toast(`Profile “${name}” is on screen. Claude Code asks you to sign in, in the terminal.`, {kind: "ok", sticky: true});
+});
 renderWelcome().then(() => {
   if(SETUP && SETUP.practice){
     api("/api/practice", {}).then(r => { PRACTICE.done = new Set(r.done); watchPractice(); }).catch(() => {});

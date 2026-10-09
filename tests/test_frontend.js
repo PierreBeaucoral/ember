@@ -198,6 +198,23 @@ function eq0(name, got, want) { report(name, got === want, `got ${JSON.stringify
       if (ratio(t[fg], fill) < 4.5) dbad.push(`${n} ${fg} on fill ${ratio(t[fg], fill).toFixed(2)}`);
     }
   report("diff lines: added/deleted text >= 4.5:1 on its tinted fill", !dbad.length, dbad.join("; "));
+  // 1.5: text on the selected-row tint (--soft: accent 14%, over --bg in the sidebar and
+  // --panel in dialogs) and on the review's +/− line tints (ok/err 12% over --panel)
+  const tbad = [];
+  for (const [n, t] of Object.entries(THEMES)) {
+    for (const s of ["bg", "panel"]) {
+      const soft = mix(t[s], t.accent, 0.14);
+      if (ratio(t.fg, soft) < 4.5) tbad.push(`${n} fg on soft/${s} ${ratio(t.fg, soft).toFixed(2)}`);
+    }
+    for (const base of ["ok", "err"]) {
+      const tint = mix(t.panel, t[base], 0.12);
+      if (ratio(t.fg, tint) < 4.5) tbad.push(`${n} fg on ${base} tint ${ratio(t.fg, tint).toFixed(2)}`);
+    }
+  }
+  report("1.5 tints: selected rows and review lines keep text >= 4.5:1", !tbad.length, tbad.join("; "));
+  // dim line numbers on those tints fall to ~4.1:1 in three themes: the gutter must keep --panel
+  report("review gutter keeps --panel under the line tints",
+         /\.gdl \.ln \{[^}]*background:var\(--panel\)/.test(html));
   report("every theme passes WCAG AA contrast (" + Object.keys(THEMES).length + " themes)", !bad.length, bad.join("; "));
   // the stylesheet defaults are Ember Dark: keep them in step with the table
   const gd = THEMES["Ember Dark"], root = slice(":root {", "color-scheme: dark;");
@@ -653,6 +670,136 @@ eq("re-activating the same tab does not reload", app.loaded.length, before);
   const tourMissing = tourIds.filter(id => !html.includes(`id="${id}"`));
   report("every tour step targets an existing element", tourIds.length === 8 && !tourMissing.length, tourMissing.join(", "));
 
+  // 1.5: needs-you states from Live activity events
+  {
+    const { applySessEvents } = (0, eval)(
+      slice('/* ---------- "now doing" per project', "/* The tree is one tab stop") + ";({applySessEvents})");
+    const ev = (n, extra) => Object.assign({hook_event_name: n, session_id: "s1", cwd: "/u/p"}, extra || {});
+    let S = applySessEvents({}, [ev("UserPromptSubmit"), ev("PermissionRequest", {tool_name: "Bash"})], 1);
+    eq("a permission request makes the session wait", S.s1.state + "/" + S.s1.perm + "/" + S.s1.tool, "waiting/true/Bash");
+    const S2 = applySessEvents(S, [ev("Notification", {notification_type: "idle_prompt"})], 2);
+    eq("an idle reminder does not hide a permission prompt", S2.s1.state, "waiting");
+    eq("applySessEvents does not mutate the previous state", S.s1.t, 1);
+    const S3 = applySessEvents(S, [ev("PostToolUse", {tool_name: "Read"})], 3);
+    eq("a parallel Read finishing does not answer the Bash prompt", S3.s1.state, "waiting");
+    S = applySessEvents(S, [ev("PostToolUse", {tool_name: "Bash"})], 3);
+    eq("its own tool finishing: working again", S.s1.state, "working");
+    S = applySessEvents(S, [ev("Stop")], 4);
+    eq("Stop: your turn", S.s1.state + "/" + S.s1.t, "done/4");
+    eq("idle while working: your turn", applySessEvents({}, [ev("PreToolUse"), ev("Notification", {notification_type: "idle_prompt"})], 5).s1.state, "done");
+    eq("SessionEnd forgets it", JSON.stringify(applySessEvents(S, [ev("SessionEnd")], 6)), "{}");
+    const Den = applySessEvents(applySessEvents({}, [ev("PermissionRequest", {tool_name: "Bash"})], 1), [ev("PermissionDenied", {tool_name: "Bash"})], 2);
+    eq("a denied prompt ends the wait", Den.s1.state, "working");
+    eq("events without a session id are ignored", JSON.stringify(applySessEvents({}, [{hook_event_name: "Stop", cwd: "/u"}], 7)), "{}");
+    // real logs: background subagents keep reporting under the parent's id after Stop
+    const D = applySessEvents(S, [ev("PreToolUse", {agent_id: "a1", tool_name: "Read"}), ev("SubagentStop", {agent_id: "a1"}),
+                                  ev("StopFailure", {agent_id: "a1"})], 8);
+    eq("subagent activity after the turn leaves it your turn", D.s1.state, "done");
+    const A = applySessEvents({}, [ev("PermissionRequest", {agent_id: "a1", tool_name: "Bash"})], 9);
+    eq("a subagent's prompt still needs you, marked as the subagent's", A.s1.state + "/" + A.s1.agent, "waiting/true");
+    const W = applySessEvents(A, [ev("Notification", {notification_type: "permission_prompt"})], 10);
+    eq("the repeated permission Notification keeps who asked", W.s1.agent + "/" + W.s1.tool, "true/Bash");
+  }
+
+  // 1.5: review prompt, retention step, compactions, chat options, MCP names
+  {
+    const { reviewPrompt } = (0, eval)(slice("const GD = {cwd: null", "async function openChanges") + ";({reviewPrompt})");
+    const p = reviewPrompt([{path: "a.py", line: 12, side: "new", code: "  x = 1  ", text: "rename x\nplease"},
+                            {path: "b.py", line: 3, side: "old", code: "y".repeat(200), text: "why removed?"}],
+                           "uncommitted changes", "/r");
+    report("review prompt is one line", !/\n/.test(p), p);
+    report("review prompt numbers each comment with file:line", p.includes("(1) a.py:12 [x = 1] rename x please")
+           && p.includes("(2) b.py:3 (removed line) [" + "y".repeat(80) + "] why removed?"), p);
+    report("review prompt says how many and where", p.startsWith("Code review: 2 comments on the uncommitted changes in /r."), p);
+
+    const { retentionStep } = (0, eval)(slice("const KEEP_DAYS", "async function keepChats") + ";({retentionStep})");
+    eq("unset retention is Claude Code's 30 days, not done", [retentionStep(null).ok, /30 days/.test(retentionStep(null).text)].join(), "false,true");
+    eq("90 days is still a todo", retentionStep(90).ok, false);
+    eq("10 years reads as years", retentionStep(3650).text, "Chats are kept for 10 years");
+    eq("400 days reads as days", retentionStep(400).text, "Chats are kept for 400 days");
+    report("0 days is said as 0, not as the 30-day default", /after 0 days/.test(retentionStep(0).text));
+
+    const { NAV, isCompaction } = (0, eval)(slice("// a compaction boundary, or the summary", "const isPrompt")
+      + slice("const NAV = {", "let VIEW = null;") + ";({NAV, isCompaction})");
+    const E = [{kind: "compact"}, {kind: "meta", sub: "summary"}, {kind: "user", text: "go"},
+               {kind: "meta", sub: "summary"}, {kind: "assistant"}, {kind: "compact"}];
+    eq("a boundary and its summary count as one compaction", E.filter(NAV.compact).length, 3);
+
+    const { chatOptsLabel } = (0, eval)("(() => { const lsGet = () => null;" + slice("const CHAT_OPTS = {", "function chatOptsHtml") + "; return {chatOptsLabel}; })()");
+    eq("chat options label", chatOptsLabel({model: "sonnet", effort: "high", permission_mode: "plan", worktree: true}),
+       "Sonnet · high effort · plan first · worktree");
+    eq("no options, no label", chatOptsLabel({}), "");
+
+    const { chatOptsFor } = (0, eval)("(() => { const lsGet = () => JSON.stringify({model: 'opus', worktree: true});" + slice("const CHAT_OPTS = {", "function chatOptsHtml") + "; return {chatOptsFor}; })()");
+    eq("a new chat gets the worktree option", JSON.stringify(chatOptsFor({})), '{"model":"opus","worktree":true}');
+    eq("a task Ember starts with a prompt never gets a worktree", JSON.stringify(chatOptsFor({prompt: "fix it"})), '{"model":"opus"}');
+
+    const { canAllow } = (0, eval)(slice('// "1" answers Yes only on a permission prompt', "// mcp__playwright__browser_click") + ";({canAllow})");
+    const { chatOptsFor: cof2 } = (0, eval)("(() => { const lsGet = () => JSON.stringify({permission_mode: 'bypassPermissions', model: 'opus'});" + slice("const CHAT_OPTS = {", "function chatOptsHtml") + "; return {chatOptsFor}; })()");
+    eq("a task Ember starts never bypasses permissions", JSON.stringify(cof2({prompt: "review"})), '{"model":"opus"}');
+    const { chatOptsFor: cof3 } = (0, eval)("(() => { const lsGet = () => JSON.stringify({permission_mode: 'auto'});" + slice("const CHAT_OPTS = {", "function chatOptsHtml") + "; return {chatOptsFor}; })()");
+    eq("nor runs in auto or accept-edits mode", JSON.stringify(cof3({prompt: "review"})), "{}");
+    eq("a new chat keeps the chosen mode", JSON.stringify(cof2({})), '{"permission_mode":"bypassPermissions","model":"opus"}');
+    const { reviewPrompt: rp2 } = (0, eval)(slice("const GD = {cwd: null", "async function openChanges") + ";({reviewPrompt})");
+    report("review prompt drops control characters (no ESC typed into the terminal)",
+           !/[\x00-\x1f]/.test(rp2([{path: "new\ttab\n.txt", line: 1, side: "new", code: "\x1b[31mred\x1b[0m", text: "ok\ttab"}], "x", "/r\n")));
+    report("review prompt: the instruction comes before the comments (a cut prompt keeps it)",
+           /^Code review: 1 comment on the x in \/r\. Address each one/.test(rp2([{path: "a", line: 1, side: "new", code: "", text: "t"}], "x", "/r")));
+    const bash = {tool: "Bash", brief: "make", open: 1};
+    eq("Allow once when the hook and the transcript name the same call", canAllow({perm: true, tool: "Bash", pending: bash}), true);
+    eq("never before the request is known", canAllow({perm: true, tool: "Bash"}), false);
+    eq("never when they disagree (the transcript's call is not what is asked)", canAllow({perm: true, tool: "Bash", pending: {tool: "Agent"}}), false);
+    eq("never on a question, whatever the transcript says", canAllow({perm: true, tool: "AskUserQuestion", pending: {tool: "Agent"}}), false);
+    eq("never on a plan approval", canAllow({perm: true, tool: "ExitPlanMode", pending: {tool: "ExitPlanMode"}}), false);
+    eq("never on a subagent's prompt", canAllow({perm: true, agent: true, tool: "Bash", pending: bash}), false);
+    eq("never while two calls of that tool are open", canAllow({perm: true, tool: "Bash", pending: Object.assign({}, bash, {open: 2})}), false);
+    eq("never without a permission event", canAllow({perm: false, tool: "Bash", pending: bash}), false);
+
+    // Allow once only reaches the tab that runs that very session
+    const TFS = (0, eval)("(() => { const normPath = p => String(p || ''); let TM = {terms: new Map()};"
+      + slice("/* The Ember tab running a session.", "function sessTitle")
+      + "; return {termForSession, setTabs: l => { TM = {terms: new Map(l.map(t => [t.id, t]))}; }}; })()");
+    const tab = (id, sid, extra) => Object.assign({id, sid, cwd: "/p", kind: "claude", dead: false}, extra || {});
+    TFS.setTabs([tab("a", "S1"), tab("b", null, {kind: "resume"})]);
+    const ex = TFS.termForSession("S1", "/p");
+    eq("the tab started with that session id: exact", ex && ex.term.id + "/" + ex.exact, "a/true");
+    const fk = TFS.termForSession("S2", "/p");
+    eq("an unknown session can be the one fork tab in its folder, never exact", fk && fk.term.id + "/" + fk.exact, "b/false");
+    TFS.setTabs([tab("a", "S1")]);
+    eq("a tab known to run another session is never it (no Allow into the wrong chat)", TFS.termForSession("S2", "/p"), null);
+    TFS.setTabs([tab("b", null), tab("c", null)]);
+    eq("two unknown tabs in that folder: no guess", TFS.termForSession("S2", "/p"), null);
+    TFS.setTabs([tab("a", "S1", {dead: true}), tab("s", null, {kind: "shell"})]);
+    eq("dead tabs and shells never count", TFS.termForSession("S1", "/p"), null);
+
+    const { gdStep } = (0, eval)(slice("// the next commentable line (hunk headers skipped)", "const gdFirstLine") + ";({gdStep})");
+    const L = [{t: "@"}, {t: " "}, {t: "+"}, {t: "@"}, {t: "-"}, {t: " "}];
+    eq("first commentable line skips the hunk header", gdStep(L, null, 1), 1);
+    eq("last line", gdStep(L, null, -1), 5);
+    eq("down skips the next hunk header", gdStep(L, 2, 1), 4);
+    eq("up skips it too", gdStep(L, 4, -1), 2);
+    eq("stops at the end", gdStep(L, 5, 1), 5);
+    eq("page down moves n lines", gdStep(L, 1, 1, 3), 5);
+    eq("no lines: no cursor", gdStep([{t: "@"}], null, 1), null);
+
+    const { toolName } = (0, eval)(slice("// mcp__playwright__browser_click", "async function fetchPending") + ";({toolName})");
+    eq("MCP tool names read as server · tool", toolName("mcp__playwright__browser_click"), "playwright · browser_click");
+    eq("built-in tool names stay", toolName("Bash"), "Bash");
+  }
+
+  /* ---------------- 1.5: never type into a terminal showing a prompt ---------------- */
+  {
+    const TW = (0, eval)("(() => { const normPath = p => String(p || ''); let EV = {sess: {}};"
+      + slice("/* A Claude tab showing a permission prompt", "const WAITING_MSG")
+      + "; return {tabWaiting, set: s => { EV = {sess: s}; }}; })()");
+    TW.set({S1: {state: "waiting", cwd: "/p"}, S2: {state: "working", cwd: "/q"}});
+    eq("a tab whose session waits", TW.tabWaiting({kind: "claude", sid: "S1", cwd: "/p"}), true);
+    eq("a tab whose session works", TW.tabWaiting({kind: "claude", sid: "S2", cwd: "/q"}), false);
+    eq("a fork tab in a folder where a session waits", TW.tabWaiting({kind: "resume", sid: null, cwd: "/p"}), true);
+    eq("a shell never", TW.tabWaiting({kind: "shell", cwd: "/p"}), false);
+  }
+
   console.log(fails ? `\n${fails} failed` : `\nall passed`);
   process.exit(fails ? 1 : 0);
 })();
+
