@@ -5272,6 +5272,7 @@ function cpActions(){
   add(APP.openIn === "browser" ? "Desktop app: open its own window at launch"
                                : "Desktop app: open the browser at launch",
       () => setOpenIn(APP.openIn === "browser" ? "window" : "browser"));
+  add("Quit Ember", () => $("#btnQuit").click());
   add("Check for updates", () => checkUpdate(true));
   add(APP.updates ? "Turn off the daily update check" : "Turn on the daily update check",
       () => setUpdates(!APP.updates));
@@ -6901,6 +6902,7 @@ $("#homenav").onclick = ev => {
         menuItem(m, "Keyboard shortcuts", "", openKeys);
         menuItem(m, "Guided tour", "", startTour);
         menuItem(m, "Glossary", "", openGloss);
+        menuItem(m, "Quit Ember", "stop the server", () => $("#btnQuit").click());
       }, "Settings");
     },
   }[b.dataset.h];
