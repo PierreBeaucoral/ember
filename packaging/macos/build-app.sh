@@ -69,6 +69,7 @@ if [ "$DEV" = 0 ]; then
   RES="$APP/Contents/Resources"
   cp "$REPO/server.py" "$REPO/winconpty.py" "$REPO/index.html" "$REPO/addons.json" "$RES/"
   cp -R "$REPO/vendor" "$RES/vendor"
+  mkdir -p "$RES/docs/assets" && cp "$REPO/docs/assets/layout.svg" "$RES/docs/assets/"
   mkdir -p "$RES/tools"
   cp "$REPO/tools/devtools_hooks.py" "$RES/tools/"
 

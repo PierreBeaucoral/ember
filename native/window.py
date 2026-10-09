@@ -120,27 +120,6 @@ def have_webview():
     return webview_error() is None
 
 
-def unblock_bundle():
-    """Files extracted from a downloaded zip carry Windows' "from the
-    internet" mark (a Zone.Identifier stream), and .NET Framework refuses to
-    load a marked assembly (HRESULT 0x80131515): pythonnet's Python.Runtime.dll
-    and WebView2's DLLs failed, so the window fell back to the browser. Clear
-    the mark on the bundle's own binaries, as Properties → Unblock does; the
-    user already chose to run Ember.exe. Returns how many were cleared."""
-    if os.name != "nt" or not FROZEN:
-        return 0
-    n = 0
-    for root, _, files in os.walk(Path(sys.executable).parent):
-        for f in files:
-            if f.lower().endswith((".dll", ".pyd", ".exe")):
-                try:
-                    os.remove(os.path.join(root, f) + ":Zone.Identifier")
-                    n += 1
-                except OSError:     # no mark, or a read-only install
-                    pass
-    return n
-
-
 def browser_instead(url, err):
     """No window (pywebview missing, no WebView2 runtime, .NET refusing its
     DLLs…): open the browser, and say why: a windowed exe has no stderr, so
@@ -199,7 +178,7 @@ def open_app():
     if server.open_in() == "browser":
         webbrowser.open(url)        # the server stays up for the browser tab
         return 0
-    unblock_bundle()
+    # .NET loads the bundle's marked DLLs thanks to Ember.exe.config (build.py)
     err = webview_error()
     if err:
         return browser_instead(url, err)
