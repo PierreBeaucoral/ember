@@ -687,6 +687,8 @@ def test_setup_status_reports_first_run_needs(monkeypatch, tmp_path):
     home = tmp_path / "home"
     (home / ".claude" / "projects").mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
+    # Windows: Path.home() reads USERPROFILE, not HOME
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(srv, "CLAUDE_ROOT", home / ".claude")
     srv._env_cache["claude"] = None
