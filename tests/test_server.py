@@ -1321,6 +1321,9 @@ def test_shipped_addons_manifest_is_complete():
         assert a["source"].startswith("https://"), a["id"]
     used = {a["id"] for a in data["addons"] if a.get("used_by_app")}
     assert used == {"graphify", "improve"}   # the tees edit settings.json: opt-in only
+    pre = {a["id"] for a in data["addons"] if a.get("default")}
+    assert pre == {"taste-skill", "hallmark", "obsidian"}   # caveman changes every reply: opt-in
+    assert {a["id"]: a.get("badge") for a in data["addons"]}["caveman"] == "recommended only for coding"
 
 
 def test_addon_detection_by_kind(tmp_path):
@@ -1407,7 +1410,7 @@ def test_windows_install_lines_are_safe_to_chain_in_cmd():
         assert not re.search(r"(^|&&|\(|\|\|)\s*if\s", line), f"{aid}: bare if"
         for m in re.finditer(r"(^|&&|\(|\|\|)\s*(\S+)", line):
             # npm-installed CLIs are .cmd wrappers too
-            assert m.group(2) not in ("claude", "npm", "codex"), \
+            assert m.group(2) not in ("claude", "npm", "npx", "codex"), \
                 f"{aid}: `{m.group(2)}` without `call`"
         assert line.count("(") == line.count(")"), aid
 
@@ -2218,6 +2221,22 @@ def test_home_lists_newest_sessions_across_projects(home_root):
     assert out["continue"]["id"] == "s6" and out["continue"]["live"] is False
 
 
+def test_home_lists_headless_runs_apart(home_root):
+    """`claude -p` runs (digests, retrospectives) get their own list and are never 'continue'."""
+    pd = srv.projects_dir(home_root)
+    for i, ep in enumerate(["cli", "sdk-cli", "cli", "sdk-cli"]):    # oldest first
+        u = rec_user(f"prompt {i}")
+        u["entrypoint"] = ep
+        f = pd / "-a" / f"s{i}.jsonl"
+        write_session(f, [u])
+        _aged(f, 10_000 - i * 100)
+    out = srv.home_summary(home_root)
+    assert [m["id"] for m in out["recent"]] == ["s2", "s0"]
+    assert [m["id"] for m in out["automated"]] == ["s3", "s1"]
+    assert out["continue"]["id"] == "s2"
+    assert srv.session_meta(pd / "-a" / "s1.jsonl")["headless"] is True
+
+
 def test_home_continue_carries_last_reply_live_flag_and_plan(home_root):
     proj = home_root.parent / "proj"
     (proj / ".claude").mkdir(parents=True)
@@ -2243,7 +2262,7 @@ def test_home_continue_carries_last_reply_live_flag_and_plan(home_root):
 def test_home_endpoint_answers_over_http(http_server):
     code, body = fetch(http_server + "/api/home", headers={"X-Devtools-Token": "a" * 48})
     data = json.loads(body)
-    assert code == 200 and set(data) == {"now", "continue", "recent", "viz", "viz_dir"}
+    assert code == 200 and set(data) == {"now", "continue", "recent", "automated", "viz", "viz_dir"}
     assert data["continue"]["last_assistant"] == "hi"
 
 

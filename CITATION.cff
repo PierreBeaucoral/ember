@@ -14,8 +14,8 @@ authors:
 repository-code: "https://github.com/PierreBeaucoral/ember"
 url: "https://github.com/PierreBeaucoral/ember"
 license: MIT
-version: "1.5.0"
-date-released: "2026-10-09"
+version: "1.5.1"
+date-released: "2026-10-12"
 keywords:
   - claude-code
   - developer-tools

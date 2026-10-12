@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 660" width="1280" height="660" role="img" aria-labelledby="t d">
   <title id="t">Ember Workspace layout</title>
-  <desc id="d">Top bar with the Ember logo, breadcrumb, search field, usage meter, Layout menu and Resume; sidebar with New chat, project filter, projects and chats with turn counts, and Add-ons, Theme, Alerts, Quit at the bottom; the conversation with folded turn summaries above a docked terminal; an inspector with Plan, Usage, Output, Files and Config tabs, showing the plan checklist.</desc>
+  <desc id="d">Top bar with the Ember logo, breadcrumb, search field, usage meter and Layout menu; sidebar with New chat, project filter, projects and chats with turn counts, and Add-ons, Theme, Alerts, Quit at the bottom; the conversation with folded turn summaries above a docked terminal; an inspector with Plan, Usage, Output, Files and Config tabs, showing the plan checklist.</desc>
   <style>
     .bg { fill: #faf7f2 } .win { fill: #f2eee7; stroke: #d9d2c7 } .pane { fill: #ffffff; stroke: #e0d9cf }
     .h { fill: #20242b } .t { fill: #5b5f66 } .line { fill: #e9e4dc } .term { fill: #20242b } .termt { fill: #d6d2cc }
@@ -19,7 +19,7 @@
   <circle cx="60" cy="54" r="7" fill="#ec6a5e"/><circle cx="84" cy="54" r="7" fill="#f4bf4f"/><circle cx="108" cy="54" r="7" fill="#61c554"/>
   <text x="640" y="60" text-anchor="middle" class="t">Ember</text>
 
-  <!-- top bar: logo (Home), breadcrumb, search / palette, usage meter, Layout, Resume -->
+  <!-- top bar: logo (Home), breadcrumb, search / palette, usage meter, Layout -->
   <rect class="pane" x="48" y="72" width="1184" height="44" rx="10"/>
   <rect x="60" y="80" width="28" height="28" rx="7" fill="#dd876d"/>
   <path d="M67 88 l6 6 -6 6 M77 100 h8" stroke="#20242b" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -30,14 +30,12 @@
   <rect class="line" x="866" y="90" width="72" height="8" rx="4"/>
   <rect x="866" y="90" width="22" height="8" rx="4" fill="#dd876d"/>
   <text x="948" y="99" class="t">11%</text>
-  <text x="1030" y="99" class="t">Layout</text>
-  <rect x="1124" y="81" width="96" height="26" rx="6" fill="#dd876d"/>
-  <text x="1172" y="99" text-anchor="middle" class="t" style="fill:#20242b;font-weight:600">Resume</text>
+  <text x="1216" y="99" text-anchor="end" class="t">Layout</text>
 
   <!-- sidebar -->
   <rect class="pane" x="48" y="128" width="220" height="488" rx="10"/>
-  <rect x="60" y="140" width="196" height="28" rx="6" fill="#dd876d"/>
-  <text x="158" y="159" text-anchor="middle" class="t" style="fill:#20242b;font-weight:600">+ New chat</text>
+  <rect x="60.5" y="140.5" width="195" height="27" rx="6" fill="none" stroke="#a9adb4"/>
+  <text x="158" y="159" text-anchor="middle" class="h" style="font-size:15px;font-weight:500">+ New chat</text>
   <rect class="line" x="60" y="176" width="196" height="26" rx="6"/>
   <text x="70" y="194" class="t" style="font-size:14px">Filter projects</text>
   <text x="246" y="194" text-anchor="end" class="t mono" style="font-size:13px">⌘K</text>

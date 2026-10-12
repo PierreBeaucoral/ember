@@ -1,5 +1,5 @@
 {
-  "_comment": "Optional Claude Code add-ons offered by the Add-ons pane (🧩). The app only ever runs the install commands written here: edit this list to change what it proposes. check.kind: skill = ~/.claude/skills/<name>/SKILL.md, command = ~/.claude/commands/<name>.md, plugin = <name>@<marketplace> in ~/.claude/plugins/installed_plugins.json, statusline / hook = <name> appears in the statusLine / a hook command of ~/.claude/settings.json. {hooks} in a command = how to run tools/devtools_hooks.py with the Python running Ember (the app itself in a frozen build); {app} = this checkout's folder. needs = programs that must be on PATH first. install.posix runs in the login shell (macOS/Linux), install.windows in cmd.exe; an add-on's lines are joined with && into ONE line, so each must be safe to chain: group any a || b in parentheses, never use cmd's `if` (it swallows the rest of the line), and prefix `claude` with `call` on Windows (npm installs it as a .cmd). reinstall (optional, same shape as install) is what the pane runs when an installed add-on is ticked again; without it, install is re-run. prerequisites: how to install each program listed in needs, per OS (mac / linux / windows); the pane shows the command and can run it in the visible terminal. On Windows without winget (older Windows 10, managed PCs), install[\"windows-nowinget\"] is used when present: the program's official installer, downloaded with PowerShell and opened for the user to click through.",
+  "_comment": "Optional Claude Code add-ons offered by the Add-ons pane (🧩). The app only ever runs the install commands written here: edit this list to change what it proposes. A missing add-on is pre-ticked when used_by_app or default is true. badge (optional) = a short pill next to the name. check.kind: skill = ~/.claude/skills/<name>/SKILL.md, command = ~/.claude/commands/<name>.md, plugin = <name>@<marketplace> in ~/.claude/plugins/installed_plugins.json, statusline / hook = <name> appears in the statusLine / a hook command of ~/.claude/settings.json. {hooks} in a command = how to run tools/devtools_hooks.py with the Python running Ember (the app itself in a frozen build); {app} = this checkout's folder. needs = programs that must be on PATH first. install.posix runs in the login shell (macOS/Linux), install.windows in cmd.exe; an add-on's lines are joined with && into ONE line, so each must be safe to chain: group any a || b in parentheses, never use cmd's `if` (it swallows the rest of the line), and prefix `claude` with `call` on Windows (npm installs it as a .cmd). reinstall (optional, same shape as install) is what the pane runs when an installed add-on is ticked again; without it, install is re-run. prerequisites: how to install each program listed in needs, per OS (mac / linux / windows); the pane shows the command and can run it in the visible terminal. On Windows without winget (older Windows 10, managed PCs), install[\"windows-nowinget\"] is used when present: the program's official installer, downloaded with PowerShell and opened for the user to click through.",
   "addons": [
     {
       "id": "graphify",
@@ -382,6 +382,127 @@
           "call claude mcp add --scope user --transport http context7 https://mcp.context7.com/mcp"
         ]
       }
+    },
+    {
+      "id": "taste-skill",
+      "name": "taste-skill",
+      "used_by_app": false,
+      "default": true,
+      "unlocks": "Frontend design skills against generic AI-looking UI (design-taste-frontend, minimalist-ui, redesign-existing-projects, …). Installed with the skills CLI (npx).",
+      "source": "https://github.com/Leonxlnx/taste-skill",
+      "check": {
+        "kind": "skill",
+        "name": "design-taste-frontend"
+      },
+      "needs": [
+        "node"
+      ],
+      "install": {
+        "posix": [
+          "npx -y skills add Leonxlnx/taste-skill --skill '*' -g -a claude-code -y"
+        ],
+        "windows": [
+          "call npx -y skills add Leonxlnx/taste-skill --skill * -g -a claude-code -y --copy"
+        ]
+      }
+    },
+    {
+      "id": "hallmark",
+      "name": "hallmark",
+      "used_by_app": false,
+      "default": true,
+      "unlocks": "Anti-AI-slop design skill: new pages, audits, redesigns, design extraction from a URL or screenshot. Installed with the skills CLI (npx).",
+      "source": "https://github.com/nutlope/hallmark",
+      "check": {
+        "kind": "skill",
+        "name": "hallmark"
+      },
+      "needs": [
+        "node"
+      ],
+      "install": {
+        "posix": [
+          "npx -y skills add nutlope/hallmark -g -a claude-code -y"
+        ],
+        "windows": [
+          "call npx -y skills add nutlope/hallmark -g -a claude-code -y --copy"
+        ]
+      }
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian skills",
+      "used_by_app": false,
+      "default": true,
+      "unlocks": "Steph Ango's skills for Obsidian: Obsidian-flavoured Markdown, Bases, JSON Canvas, the Obsidian CLI, Defuddle.",
+      "source": "https://github.com/kepano/obsidian-skills",
+      "check": {
+        "kind": "plugin",
+        "name": "obsidian@obsidian-skills"
+      },
+      "needs": [
+        "claude"
+      ],
+      "install": {
+        "posix": [
+          "(claude plugin marketplace add kepano/obsidian-skills || echo marketplace already added)",
+          "claude plugin install obsidian@obsidian-skills"
+        ],
+        "windows": [
+          "(call claude plugin marketplace add kepano/obsidian-skills || echo marketplace already added)",
+          "call claude plugin install obsidian@obsidian-skills"
+        ]
+      },
+      "reinstall": {
+        "posix": [
+          "(claude plugin uninstall obsidian@obsidian-skills || echo was not installed)",
+          "(claude plugin marketplace update obsidian-skills || claude plugin marketplace add kepano/obsidian-skills)",
+          "claude plugin install obsidian@obsidian-skills"
+        ],
+        "windows": [
+          "(call claude plugin uninstall obsidian@obsidian-skills || echo was not installed)",
+          "(call claude plugin marketplace update obsidian-skills || call claude plugin marketplace add kepano/obsidian-skills)",
+          "call claude plugin install obsidian@obsidian-skills"
+        ]
+      }
+    },
+    {
+      "id": "caveman",
+      "name": "caveman",
+      "used_by_app": false,
+      "unlocks": "Terse 'caveman' replies to save output tokens. Once installed it is ON in every session (/caveman off stops it), so it is never pre-ticked. Its caveman CLI sends anonymous usage stats unless DO_NOT_TRACK=1.",
+      "source": "https://github.com/JuliusBrussee/caveman",
+      "check": {
+        "kind": "plugin",
+        "name": "caveman@caveman"
+      },
+      "needs": [
+        "claude",
+        "curl",
+        "node"
+      ],
+      "install": {
+        "posix": [
+          "curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.sh | bash -s -- --only claude"
+        ],
+        "windows": [
+          "(call claude plugin marketplace add JuliusBrussee/caveman || echo marketplace already added)",
+          "call claude plugin install caveman@caveman"
+        ]
+      },
+      "reinstall": {
+        "posix": [
+          "(claude plugin uninstall caveman@caveman || echo was not installed)",
+          "(claude plugin marketplace update caveman || claude plugin marketplace add JuliusBrussee/caveman)",
+          "claude plugin install caveman@caveman"
+        ],
+        "windows": [
+          "(call claude plugin uninstall caveman@caveman || echo was not installed)",
+          "(call claude plugin marketplace update caveman || call claude plugin marketplace add JuliusBrussee/caveman)",
+          "call claude plugin install caveman@caveman"
+        ]
+      },
+      "badge": "recommended only for coding"
     }
   ],
   "prerequisites": {

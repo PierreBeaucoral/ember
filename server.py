@@ -58,7 +58,7 @@ import winconpty  # noqa: E402
 HAS_TERMINAL = HAS_PTY or winconpty.unsupported_reason() is None
 
 
-VERSION = "1.5.0"      # single source: build-app.sh and the HTTP header read it
+VERSION = "1.5.1"      # single source: build-app.sh and the HTTP header read it
 HERE = Path(__file__).resolve().parent
 # Inside Ember.app (Contents/Resources) or a PyInstaller build, the code folder
 # is replaced wholesale on every update: nothing may be written there.
@@ -369,6 +369,7 @@ def session_meta(path):
         "assistant_msgs": 0,
         "has_subagents": (path.parent / path.stem / "subagents").is_dir(),
         "api_error": None,
+        "headless": False,          # started by `claude -p` (a script or Ember's own runs), not typed
     }
 
     small = st.st_size <= LIST_HEAD_BYTES + LIST_TAIL_BYTES
@@ -387,6 +388,8 @@ def session_meta(path):
             meta["title"] = o["summary"]
         elif t == "user" and not o.get("isSidechain"):
             meta["user_msgs"] += 1
+            if meta["user_msgs"] == 1:          # how the session began; a later --resume does not change it
+                meta["headless"] = o.get("entrypoint") == "sdk-cli"
             meta["cwd"] = meta["cwd"] or o.get("cwd")
             meta["version"] = meta["version"] or o.get("version")
             meta["gitBranch"] = meta["gitBranch"] or o.get("gitBranch")
@@ -495,7 +498,9 @@ def last_assistant_text(path):
 
 def home_summary(root, viz_dir=None):
     """The Home screen: newest sessions across all projects, the one to
-    continue (with its last reply and plan progress), and the newest previews."""
+    continue (with its last reply and plan progress), and the newest previews.
+    Headless runs (`claude -p`: digests, retrospectives) are listed apart and
+    never become the one to continue."""
     now = time.time()
     files = []
     if projects_dir(root).is_dir():
@@ -505,9 +510,11 @@ def home_summary(root, viz_dir=None):
             except OSError:
                 continue            # removed mid-scan
     files.sort(key=lambda x: x[0], reverse=True)
-    recent, first = [], None
-    for _, f in files:
-        if len(recent) == 5:
+    recent, automated, first = [], [], None
+    for n, (_, f) in enumerate(files):
+        # ponytail: headless runs are looked for among the newest 60 files only,
+        # so an install without any never reads every transcript's metadata
+        if len(recent) == 5 and (len(automated) == 5 or n >= 60):
             break
         try:
             m = dict(session_meta(f))   # a copy: session_meta's dict is cached
@@ -518,8 +525,11 @@ def home_summary(root, viz_dir=None):
         cwd = m["cwd"] or newest_cwd(d.glob("*.jsonl"), 3)
         m.update(slug=d.name, path=cwd or d.name.replace("-", "/"),
                  live=m["mtime"] > now - LIVE_WINDOW)
-        recent.append(m)
-        first = first or (f, cwd)
+        group = automated if m["headless"] else recent
+        if len(group) < 5:
+            group.append(m)
+            if not m["headless"]:
+                first = first or (f, cwd)
     cont = None
     if recent:
         (f, cwd), plan = first, None
@@ -537,7 +547,8 @@ def home_summary(root, viz_dir=None):
         viz, vdir = viz_list(viz_dir)   # the folder the Output tab watches
     except (ValueError, OSError):
         viz, vdir = viz_list()
-    return {"now": now, "continue": cont, "recent": recent, "viz": viz[:2], "viz_dir": str(vdir)}
+    return {"now": now, "continue": cont, "recent": recent, "automated": automated,
+            "viz": viz[:2], "viz_dir": str(vdir)}
 
 
 # ---------------------------------------------------------------- session parsing
@@ -2472,6 +2483,8 @@ def addons_status(root=None, manifest=None):
                 for c in (a.get("reinstall") or {}).get(plat) or []] or cmds
         out.append({"id": a["id"], "name": a.get("name", a["id"]),
                     "used_by_app": bool(a.get("used_by_app")),
+                    "default": bool(a.get("default")),
+                    "badge": str(a.get("badge") or ""),
                     "unlocks": a.get("unlocks", ""), "source": a.get("source", ""),
                     "installed": addon_installed(a.get("check"), root, plugins),
                     "missing_needs": [n for n in a.get("needs", [])
