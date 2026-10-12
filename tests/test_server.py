@@ -2221,6 +2221,22 @@ def test_home_lists_newest_sessions_across_projects(home_root):
     assert out["continue"]["id"] == "s6" and out["continue"]["live"] is False
 
 
+def test_home_lists_headless_runs_apart(home_root):
+    """`claude -p` runs (digests, retrospectives) get their own list and are never 'continue'."""
+    pd = srv.projects_dir(home_root)
+    for i, ep in enumerate(["cli", "sdk-cli", "cli", "sdk-cli"]):    # oldest first
+        u = rec_user(f"prompt {i}")
+        u["entrypoint"] = ep
+        f = pd / "-a" / f"s{i}.jsonl"
+        write_session(f, [u])
+        _aged(f, 10_000 - i * 100)
+    out = srv.home_summary(home_root)
+    assert [m["id"] for m in out["recent"]] == ["s2", "s0"]
+    assert [m["id"] for m in out["automated"]] == ["s3", "s1"]
+    assert out["continue"]["id"] == "s2"
+    assert srv.session_meta(pd / "-a" / "s1.jsonl")["headless"] is True
+
+
 def test_home_continue_carries_last_reply_live_flag_and_plan(home_root):
     proj = home_root.parent / "proj"
     (proj / ".claude").mkdir(parents=True)
@@ -2246,7 +2262,7 @@ def test_home_continue_carries_last_reply_live_flag_and_plan(home_root):
 def test_home_endpoint_answers_over_http(http_server):
     code, body = fetch(http_server + "/api/home", headers={"X-Devtools-Token": "a" * 48})
     data = json.loads(body)
-    assert code == 200 and set(data) == {"now", "continue", "recent", "viz", "viz_dir"}
+    assert code == 200 and set(data) == {"now", "continue", "recent", "automated", "viz", "viz_dir"}
     assert data["continue"]["last_assistant"] == "hi"
 
 

@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/PierreBeaucoral/ember/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/PierreBeaucoral/ember/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Version 1.5.0" src="https://img.shields.io/badge/version-1.5.0-dd876d">
+  <img alt="Version 1.5.1" src="https://img.shields.io/badge/version-1.5.1-dd876d">
   <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-3776ab?logo=python&logoColor=white">
   <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-2ea44f">
   <img alt="macOS | Linux | Windows" src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey">
@@ -48,11 +48,11 @@ git clone https://github.com/PierreBeaucoral/ember.git && cd ember && python3 se
 
 **Layouts.** A top bar sits on every screen: the Ember logo (back to Home), where you are
 (project / conversation), a search field that opens the ⌘K palette, a compact 5-hour usage
-meter, the **Layout** menu and **Resume** for the open conversation. The Layout menu has three:
+meter and the **Layout** menu. The Layout menu has three:
 
 - **Home**, where Ember opens unless a conversation is live: continue where you left off
-  (Claude's last words, plan progress), start a new chat in a folder, recent chats across
-  projects, and on the right the setup checklist, your usage in one sentence and the latest outputs
+  (Claude's last words, plan progress), recent chats across projects, start a new chat in a
+  folder, runs started by `claude -p` (digests, retrospectives) in their own list, and on the right the setup checklist, your usage in one sentence and the latest outputs
 - **Workspace**, the default once a chat is open: the sidebar, the conversation with the
   terminal docked below it (**Hide** folds it), and an inspector with **Plan · Usage · Output ·
   Files · Config** tabs. **Ctrl+0** hides and shows the inspector
@@ -109,7 +109,7 @@ into any session in an embedded terminal.
   the agent type, model, outcome and cost (peak context, tool calls, wall time) before
   you open it. Opening shows its prompt, its result and the execution trace (the agent's
   own steps as lines, fetched on demand), so you keep your place in the parent session
-- **What is in the context window**: a *Context +N* badge on each turn lists what that
+- **What is in the context window**: a *+N in context* button on each turn lists what that
   turn added (CLAUDE.md and rules files, the skill list, MCP instructions, @-files, tool
   output, thinking), and the **Context** panel shows the window as of the last request,
   by source, with ~token estimates, links to the turn, and how much of the real context
@@ -608,7 +608,7 @@ All of it lives under **? Help** (bottom right) and in the ⌘K palette.
 | Search everything | Type in the filter box, press Enter, click a result to jump to it |
 | Open the CLI in a project | Hover a project → **+ chat** |
 | Start a session anywhere | **＋ New chat** at the top of the sidebar → pick a project, `~`, or browse for any folder |
-| Resume a session | Open it → **Resume in terminal** (or **Resume** in the top bar) |
+| Resume a session | Open it → **Resume in terminal** (or ⌘K → Resume) |
 | Show a figure from a session | Have it write into `$CLAUDE_DEVTOOLS_VIZ_DIR` |
 | Comment on a figure | Show it in the **Output** tab → **Comment** → click or drag, type, **Send to Claude** |
 | Change the theme | **Theme** at the bottom of the sidebar |

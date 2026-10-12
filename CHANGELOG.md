@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.5.1 (2026-10-12): design fixes
+
+From the design assessment (quality_reports/2026-10-12_design-assessment.md),
+checked in all ten themes.
+
+- **Narrow windows**: below 1200px the inspector starts closed (Ctrl+0 brings it
+  back), and a terminal pane with no tab is just its bar, so the conversation
+  keeps its height. In a narrow conversation column the transcript no longer
+  runs past the right edge.
+- **All panes**: the right column keeps at least 300px; the Retrospective button
+  shrinks instead of overlapping the Plan and Config tabs.
+- **One main button per screen**: the top-bar Resume is gone (the session
+  header's **Resume in terminal** and ⌘K remain); **New chat** is an outline
+  button. Usage numbers are plain text, "You" and "Claude" are labelled in the
+  text colour, and "Context +N" reads "+N in context", so the accent marks only
+  what you can act on. Cobalt gets its own selected-row tint.
+- **Home**: Continue first, then Recent chats, then Start something new. Runs
+  started by `claude -p` (digests, retrospectives, scripts) are listed apart
+  under **Automated runs** and are never the chat to continue. The tour comes
+  last and folds to its title once taken. Sections drop their borders and
+  uppercase labels; only Continue stays a card.
+- **Colour is never the only signal**: a failed step shows a diamond, a step
+  with no result a ring, a successful one a dot. "New activity" on a project is
+  an accent ring, no longer a second green dot.
+- **Themes**: Solarized Dark and Light use base2 / base02 for text, so titles
+  stand apart from details; Ember Light's thinking colour moves away from blue.
+  A test keeps text and secondary text at least 12 lightness points apart.
+- **Add-ons**: taste-skill, hallmark and Obsidian skills join the list and start
+  ticked when missing; caveman is offered unticked, labelled "recommended only
+  for coding" (once installed it changes every reply until `/caveman off`).
+
 ## 1.5.0 (2026-10-09): what Claude Code users ask for
 
 Eight changes picked from a feature map of the Claude Desktop app and 309 public

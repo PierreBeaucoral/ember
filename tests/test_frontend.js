@@ -203,7 +203,7 @@ function eq0(name, got, want) { report(name, got === want, `got ${JSON.stringify
   const tbad = [];
   for (const [n, t] of Object.entries(THEMES)) {
     for (const s of ["bg", "panel"]) {
-      const soft = mix(t[s], t.accent, 0.14);
+      const soft = t.soft || mix(t[s], t.accent, 0.14);
       if (ratio(t.fg, soft) < 4.5) tbad.push(`${n} fg on soft/${s} ${ratio(t.fg, soft).toFixed(2)}`);
     }
     for (const base of ["ok", "err"]) {
@@ -215,6 +215,15 @@ function eq0(name, got, want) { report(name, got === want, `got ${JSON.stringify
   // dim line numbers on those tints fall to ~4.1:1 in three themes: the gutter must keep --panel
   report("review gutter keeps --panel under the line tints",
          /\.gdl \.ln \{[^}]*background:var\(--panel\)/.test(html));
+  // titles and metadata stay apart: --fg and --dim at least 12 OKLab lightness points apart
+  const okL = h => { const [r, g, b] = [1, 3, 5].map(i => { let c = parseInt(h.slice(i, i + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+    const l = Math.cbrt(.4122214708*r + .5363325363*g + .0514459929*b), m = Math.cbrt(.2119034982*r + .6806995451*g + .1073969566*b),
+          q = Math.cbrt(.0883024619*r + .2817188376*g + .6299787005*b);
+    return .2104542553*l + .793617785*m - .0040720468*q; };
+  const gap = Object.entries(THEMES).filter(([, t]) => Math.abs(okL(t.fg) - okL(t.dim)) < 0.12)
+    .map(([n, t]) => `${n} ${(Math.abs(okL(t.fg) - okL(t.dim)) * 100).toFixed(0)}`);
+  report("--fg and --dim stay >= 12 OKLab L apart (hierarchy)", !gap.length, gap.join("; "));
   report("every theme passes WCAG AA contrast (" + Object.keys(THEMES).length + " themes)", !bad.length, bad.join("; "));
   // the stylesheet defaults are Ember Dark: keep them in step with the table
   const gd = THEMES["Ember Dark"], root = slice(":root {", "color-scheme: dark;");
