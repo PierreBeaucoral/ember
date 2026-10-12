@@ -2472,6 +2472,8 @@ def addons_status(root=None, manifest=None):
                 for c in (a.get("reinstall") or {}).get(plat) or []] or cmds
         out.append({"id": a["id"], "name": a.get("name", a["id"]),
                     "used_by_app": bool(a.get("used_by_app")),
+                    "default": bool(a.get("default")),
+                    "badge": str(a.get("badge") or ""),
                     "unlocks": a.get("unlocks", ""), "source": a.get("source", ""),
                     "installed": addon_installed(a.get("check"), root, plugins),
                     "missing_needs": [n for n in a.get("needs", [])

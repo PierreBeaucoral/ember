@@ -5803,6 +5803,7 @@ function renderAddons(){
     row.querySelector(".nm").textContent = a.name;
     if(a.used_by_app) row.querySelector(".nm").insertAdjacentHTML("beforeend",
       '<span class="used" title="a feature of this dashboard uses it">used by the app</span>');
+    if(a.badge) row.querySelector(".nm").insertAdjacentHTML("beforeend", `<span class="used">${esc(a.badge)}</span>`);
     row.querySelector(".un").textContent = a.unlocks;
     const pre = row.querySelector(".pre");
     if(blocked){
@@ -5859,7 +5860,7 @@ async function openAddons(preselect){
   await loadAddons();
   if(AD.error) toast("Could not read the add-ons list: " + AD.error, {kind: "err"});
   if(!AD.busy) AD.picked = new Set(preselect ? [preselect]
-    : AD.list.filter(a => !a.installed && a.used_by_app).map(a => a.id));
+    : AD.list.filter(a => !a.installed && (a.used_by_app || a.default)).map(a => a.id));
   $("#adquiet").checked = localStorage.getItem("cdl-addons-quiet") === missingIds();
   renderAddons();
   showDialog($("#addons"));                // modal: Tab stays inside, Esc closes

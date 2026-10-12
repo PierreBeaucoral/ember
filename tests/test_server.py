@@ -1321,6 +1321,9 @@ def test_shipped_addons_manifest_is_complete():
         assert a["source"].startswith("https://"), a["id"]
     used = {a["id"] for a in data["addons"] if a.get("used_by_app")}
     assert used == {"graphify", "improve"}   # the tees edit settings.json: opt-in only
+    pre = {a["id"] for a in data["addons"] if a.get("default")}
+    assert pre == {"taste-skill", "hallmark", "obsidian"}   # caveman changes every reply: opt-in
+    assert {a["id"]: a.get("badge") for a in data["addons"]}["caveman"] == "recommended only for coding"
 
 
 def test_addon_detection_by_kind(tmp_path):
@@ -1407,7 +1410,7 @@ def test_windows_install_lines_are_safe_to_chain_in_cmd():
         assert not re.search(r"(^|&&|\(|\|\|)\s*if\s", line), f"{aid}: bare if"
         for m in re.finditer(r"(^|&&|\(|\|\|)\s*(\S+)", line):
             # npm-installed CLIs are .cmd wrappers too
-            assert m.group(2) not in ("claude", "npm", "codex"), \
+            assert m.group(2) not in ("claude", "npm", "npx", "codex"), \
                 f"{aid}: `{m.group(2)}` without `call`"
         assert line.count("(") == line.count(")"), aid
 

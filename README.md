@@ -431,8 +431,13 @@ It also opens by itself at launch while something is missing; tick
 - The list also suggests add-ons the dashboard doesn't use itself: ponytail,
   frontend-design, codex, crossref, dream, **Anthropic's document skills** (PDF, Word,
   Excel, PowerPoint), **Playwright MCP** (Claude drives a browser, e.g. to check a report
-  it built) and **Context7 MCP** (current library docs; hosted, no key needed). The two
-  MCP servers are added at user scope with `claude mcp add --scope user`. Edit
+  it built), **Context7 MCP** (current library docs; hosted, no key needed),
+  **taste-skill** and **hallmark** (design skills, installed with `npx skills add … -g`),
+  **Obsidian skills** and **caveman** (terse replies). The two MCP servers are added at
+  user scope with `claude mcp add --scope user`. Missing add-ons that the app uses, or that
+  are marked `"default": true` (taste-skill, hallmark, Obsidian), start ticked. caveman never
+  does, and carries a "recommended only for coding" pill (`"badge"`): once installed it
+  changes every reply until `/caveman off`. Edit
   `addons.json` to change what it offers. The app only ever runs commands written in
   that file
 - Without `/improve` installed, the retrospective simply doesn't run; without graphify,
